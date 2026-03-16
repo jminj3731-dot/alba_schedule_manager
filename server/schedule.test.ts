@@ -231,3 +231,77 @@ describe("Notification Logic", () => {
     expect(message).toBe("정우주님이 선호 근무일을 월,화,수,금로 수정했습니다.");
   });
 });
+
+describe("급여 계산 기간 로직", () => {
+  /** 급여 계산 기간: 전월 급여일 다음날 ~ 당월 급여일 */
+  function calcPayPeriod(year: number, month: number, payDay: number) {
+    const endDate = new Date(year, month - 1, payDay);
+    const startDate = new Date(year, month - 2, payDay + 1);
+    const toStr = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${dd}`;
+    };
+    return { startDate: toStr(startDate), endDate: toStr(endDate) };
+  }
+
+  it("급여일 14일 기준: 3월 급여 기간은 2/15 ~ 3/14", () => {
+    const { startDate, endDate } = calcPayPeriod(2026, 3, 14);
+    expect(startDate).toBe("2026-02-15");
+    expect(endDate).toBe("2026-03-14");
+  });
+
+  it("급여일 25일 기준: 3월 급여 기간은 2/26 ~ 3/25", () => {
+    const { startDate, endDate } = calcPayPeriod(2026, 3, 25);
+    expect(startDate).toBe("2026-02-26");
+    expect(endDate).toBe("2026-03-25");
+  });
+
+  it("급여일 1일 기준: 3월 급여 기간은 2/2 ~ 3/1", () => {
+    const { startDate, endDate } = calcPayPeriod(2026, 3, 1);
+    expect(startDate).toBe("2026-02-02");
+    expect(endDate).toBe("2026-03-01");
+  });
+
+  it("1월 급여 기간 계산 (전년도 12월 포함)", () => {
+    const { startDate, endDate } = calcPayPeriod(2026, 1, 14);
+    expect(startDate).toBe("2025-12-15");
+    expect(endDate).toBe("2026-01-14");
+  });
+
+  it("분을 소수 시간으로 변환: 270분 → 4.5", () => {
+    const minutesToDecimalHours = (minutes: number) => Math.round((minutes / 60) * 100) / 100;
+    expect(minutesToDecimalHours(270)).toBe(4.5);
+    expect(minutesToDecimalHours(240)).toBe(4);
+    expect(minutesToDecimalHours(210)).toBe(3.5);
+    expect(minutesToDecimalHours(255)).toBe(4.25);
+  });
+
+  it("근무 데이터 기간 필터링: 기간 내 데이터만 포함", () => {
+    const breakdown = [
+      { date: "2026-02-14", minutes: 270 },
+      { date: "2026-02-15", minutes: 240 },
+      { date: "2026-03-13", minutes: 210 },
+      { date: "2026-03-14", minutes: 255 },
+      { date: "2026-03-15", minutes: 270 }, // 기간 외
+    ];
+    const startDate = "2026-02-15";
+    const endDate = "2026-03-14";
+    const filtered = breakdown.filter((d) => d.date >= startDate && d.date <= endDate);
+    expect(filtered).toHaveLength(3);
+    expect(filtered.map((d) => d.date)).toEqual(["2026-02-15", "2026-03-13", "2026-03-14"]);
+  });
+
+  it("총 근무시간 합산 및 소수 변환", () => {
+    const minutesToDecimalHours = (minutes: number) => Math.round((minutes / 60) * 100) / 100;
+    const breakdown = [
+      { minutes: 270 }, // 4.5h
+      { minutes: 240 }, // 4h
+      { minutes: 210 }, // 3.5h
+    ];
+    const totalMinutes = breakdown.reduce((sum, d) => sum + d.minutes, 0);
+    expect(totalMinutes).toBe(720);
+    expect(minutesToDecimalHours(totalMinutes)).toBe(12);
+  });
+});

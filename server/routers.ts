@@ -21,6 +21,7 @@ import {
   updateScheduleEndTime,
   updateScheduleTime,
   getMonthlyStats,
+  getStatsByDateRange,
 } from "./db";
 
 const WEEKEND_DAYS = ["금", "토"];
@@ -279,6 +280,12 @@ export const appRouter = router({
       .input(z.object({ year: z.number(), month: z.number() }))
       .query(async ({ input }) => {
         return getMonthlyStats(input.year, input.month);
+      }),
+
+    byDateRange: publicProcedure
+      .input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .query(async ({ input }) => {
+        return getStatsByDateRange(input.startDate, input.endDate);
       }),
   }),
 });

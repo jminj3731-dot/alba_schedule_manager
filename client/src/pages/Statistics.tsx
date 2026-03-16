@@ -4,7 +4,27 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, BarChart3, Clock, Calendar, TrendingUp, Download, FileSpreadsheet } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  ChevronLeft,
+  ChevronRight,
+  BarChart3,
+  Clock,
+  Calendar,
+  TrendingUp,
+  Download,
+  FileSpreadsheet,
+  Calculator,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   BarChart,
@@ -18,11 +38,6 @@ import {
   Legend,
 } from "recharts";
 
-const SKILL_COLORS: Record<string, string> = {
-  main: "#CC0000",
-  sub: "#666666",
-};
-
 const MONTH_NAMES = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 
 function minutesToHHMM(minutes: number): string {
@@ -32,13 +47,73 @@ function minutesToHHMM(minutes: number): string {
   return `${h}시간 ${m}분`;
 }
 
+/** 분을 소수 시간으로 변환 (예: 270분 → 4.5) */
+function minutesToDecimalHours(minutes: number): number {
+  return Math.round((minutes / 60) * 100) / 100;
+}
+
+/** YYYY-MM-DD 형식으로 날짜 반환 */
+function toDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** 급여 계산 기간 계산: 전월 급여일 다음날 ~ 당월 급여일 */
+function calcPayPeriod(year: number, month: number, payDay: number): { startDate: string; endDate: string; label: string } {
+  // 당월 급여일
+  const endDate = new Date(year, month - 1, payDay);
+  // 전월 급여일 다음날
+  const startDate = new Date(year, month - 2, payDay + 1);
+
+  return {
+    startDate: toDateStr(startDate),
+    endDate: toDateStr(endDate),
+    label: `${startDate.getMonth() + 1}/${startDate.getDate()} ~ ${endDate.getMonth() + 1}/${endDate.getDate()}`,
+  };
+}
+
+interface WorkerPayConfig {
+  workerId: number;
+  workerName: string;
+  payDay: number; // 급여일 (1~31)
+}
+
 export default function Statistics() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [selectedWorker, setSelectedWorker] = useState<number | null>(null);
 
+  // 내보내기 다이얼로그 상태
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"csv" | "excel">("excel");
+  // 각 알바생별 급여일 설정 (기본값 14일)
+  const [payConfigs, setPayConfigs] = useState<Record<number, number>>({});
+
   const { data: stats = [], isLoading } = trpc.statistics.monthly.useQuery({ year, month });
+
+  // 급여 계산용 날짜 범위 쿼리 (다이얼로그 열릴 때만 사용)
+  // 모든 알바생의 급여 기간을 커버하는 최대 범위로 조회
+  const payPeriodRange = useMemo(() => {
+    if (!exportDialogOpen || stats.length === 0) return null;
+    // 가장 이른 시작일 ~ 가장 늦은 종료일
+    let minStart = "";
+    let maxEnd = "";
+    stats.forEach((s) => {
+      const day = payConfigs[s.workerId] ?? 14;
+      const { startDate, endDate } = calcPayPeriod(year, month, day);
+      if (!minStart || startDate < minStart) minStart = startDate;
+      if (!maxEnd || endDate > maxEnd) maxEnd = endDate;
+    });
+    return { startDate: minStart, endDate: maxEnd };
+  }, [exportDialogOpen, stats, payConfigs, year, month]);
+
+  const { data: rangeStats = [] } = trpc.statistics.byDateRange.useQuery(
+    { startDate: payPeriodRange?.startDate ?? "", endDate: payPeriodRange?.endDate ?? "" },
+    { enabled: !!payPeriodRange }
+  );
 
   function prevMonth() {
     if (month === 1) { setYear(y => y - 1); setMonth(12); }
@@ -52,98 +127,196 @@ export default function Statistics() {
     setSelectedWorker(null);
   }
 
-  // 차트 데이터 — 근무 일수
-  const daysChartData = useMemo(() =>
-    stats.map((s) => ({
-      name: s.workerName,
-      근무일수: s.workDays,
-      skillLevel: s.skillLevel,
-    })), [stats]);
+  function openExportDialog(format: "csv" | "excel") {
+    setExportFormat(format);
+    // 기본 급여일 설정 (아직 없으면 14일로)
+    const defaults: Record<number, number> = {};
+    stats.forEach((s) => {
+      defaults[s.workerId] = payConfigs[s.workerId] ?? 14;
+    });
+    setPayConfigs(defaults);
+    setExportDialogOpen(true);
+  }
 
-  // 차트 데이터 — 근무 시간
+  function handleExport() {
+    if (exportFormat === "csv") {
+      doExportCSV();
+    } else {
+      doExportExcel();
+    }
+    setExportDialogOpen(false);
+  }
+
+  /** 각 알바생의 급여 기간에 해당하는 근무 데이터만 필터링 */
+  function getWorkerPeriodData(workerId: number, workerName: string) {
+    const day = payConfigs[workerId] ?? 14;
+    const { startDate, endDate } = calcPayPeriod(year, month, day);
+    const workerStat = rangeStats.find((s) => s.workerId === workerId);
+    if (!workerStat) return { startDate, endDate, breakdown: [], totalMinutes: 0, workDays: 0 };
+
+    // 해당 기간 내 데이터만 필터
+    const breakdown = workerStat.dailyBreakdown.filter(
+      (d) => d.date >= startDate && d.date <= endDate
+    );
+    const totalMinutes = breakdown.reduce((sum, d) => sum + d.minutes, 0);
+    return { startDate, endDate, breakdown, totalMinutes, workDays: breakdown.length };
+  }
+
+  function doExportCSV() {
+    const bom = "\uFEFF";
+    const rows: string[][] = [];
+
+    // 급여 계산 섹션
+    rows.push(["=== 급여 계산 ===", "", "", "", "", "", "", ""]);
+    rows.push(["이름", "급여 기간", "근무일수", "총근무시간(h)", "시급(원)", "총급여(원)", "", ""]);
+
+    stats.forEach((s) => {
+      const { startDate, endDate, totalMinutes, workDays } = getWorkerPeriodData(s.workerId, s.workerName);
+      const totalHours = minutesToDecimalHours(totalMinutes);
+      rows.push([
+        s.workerName,
+        `${startDate} ~ ${endDate}`,
+        String(workDays),
+        String(totalHours),
+        "", // 시급 직접 입력
+        "", // 총급여 직접 계산
+        "",
+        "",
+      ]);
+    });
+
+    rows.push(["", "", "", "", "", "", "", ""]);
+
+    // 상세 내역 섹션
+    rows.push(["=== 근무 상세 내역 ===", "", "", "", "", "", "", ""]);
+    rows.push(["이름", "급여기간", "날짜", "요일", "타임", "출근", "퇴근", "근무시간(h)"]);
+
+    stats.forEach((s) => {
+      const { startDate, endDate, breakdown } = getWorkerPeriodData(s.workerId, s.workerName);
+      const periodLabel = `${startDate} ~ ${endDate}`;
+      breakdown.forEach((d) => {
+        rows.push([
+          s.workerName,
+          periodLabel,
+          d.date,
+          d.dayOfWeek,
+          d.timeSlot + "타임",
+          d.startTime,
+          d.endTime,
+          String(minutesToDecimalHours(d.minutes)),
+        ]);
+      });
+    });
+
+    const csvContent = bom + rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `급여계산_${year}년${String(month).padStart(2, "0")}월.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function doExportExcel() {
+    const wb = XLSX.utils.book_new();
+
+    // ── 시트 1: 급여 계산 ──
+    const payRows: (string | number)[][] = [];
+    payRows.push(["이름", "급여 기간 시작", "급여 기간 종료", "근무일수", "총 근무시간(h)", "시급(원)", "총 급여(원)"]);
+
+    stats.forEach((s) => {
+      const { startDate, endDate, totalMinutes, workDays } = getWorkerPeriodData(s.workerId, s.workerName);
+      const totalHours = minutesToDecimalHours(totalMinutes);
+      // 총급여 수식: =E{row}*F{row}
+      const rowNum = payRows.length + 1; // 헤더가 1행이므로 데이터는 2행부터
+      payRows.push([
+        s.workerName,
+        startDate,
+        endDate,
+        workDays,
+        totalHours,
+        0, // 시급 입력 셀 (기본값 0)
+        { f: `E${rowNum + 1}*F${rowNum + 1}` } as any, // 총급여 수식
+      ]);
+    });
+
+    const wsPayroll = XLSX.utils.aoa_to_sheet(payRows);
+
+    // 열 너비 설정
+    wsPayroll["!cols"] = [
+      { wch: 10 }, // 이름
+      { wch: 14 }, // 시작일
+      { wch: 14 }, // 종료일
+      { wch: 10 }, // 근무일수
+      { wch: 14 }, // 총근무시간
+      { wch: 12 }, // 시급
+      { wch: 14 }, // 총급여
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsPayroll, "급여계산");
+
+    // ── 시트 2: 상세 내역 ──
+    const detailRows: (string | number)[][] = [];
+    detailRows.push(["이름", "급여 기간", "날짜", "요일", "타임", "출근", "퇴근", "근무시간(h)"]);
+
+    stats.forEach((s) => {
+      const { startDate, endDate, breakdown } = getWorkerPeriodData(s.workerId, s.workerName);
+      const periodLabel = `${startDate} ~ ${endDate}`;
+      breakdown.forEach((d) => {
+        detailRows.push([
+          s.workerName,
+          periodLabel,
+          d.date,
+          d.dayOfWeek,
+          d.timeSlot + "타임",
+          d.startTime,
+          d.endTime,
+          minutesToDecimalHours(d.minutes),
+        ]);
+      });
+    });
+
+    const wsDetail = XLSX.utils.aoa_to_sheet(detailRows);
+    wsDetail["!cols"] = [
+      { wch: 10 },
+      { wch: 24 },
+      { wch: 12 },
+      { wch: 6 },
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 12 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsDetail, "상세내역");
+
+    XLSX.writeFile(wb, `급여계산_${year}년${String(month).padStart(2, "0")}월.xlsx`);
+  }
+
+  // 차트 데이터
+  const daysChartData = useMemo(() =>
+    stats.map((s) => ({ name: s.workerName, 근무일수: s.workDays, skillLevel: s.skillLevel })),
+    [stats]);
+
   const hoursChartData = useMemo(() =>
     stats.map((s) => ({
       name: s.workerName,
       근무시간: Math.round(s.totalMinutes / 60 * 10) / 10,
       skillLevel: s.skillLevel,
-    })), [stats]);
+    })),
+    [stats]);
 
-  // 타임별 집계 차트
   const timeSlotData = useMemo(() =>
     stats.map((s) => ({
       name: s.workerName,
       "A타임": s.aTimeDays,
       "B타임": s.bTimeDays,
       "C타임": s.cTimeDays,
-    })), [stats]);
+    })),
+    [stats]);
 
   const selectedStat = selectedWorker !== null ? stats.find((s) => s.workerId === selectedWorker) : null;
-
-  // CSV 내보내기
-  function exportCSV() {
-    const rows: string[][] = [
-      ["이름", "숙련도", "날짜", "요일", "타임", "출근시간", "퇴근시간", "근무시간(분)"],
-    ];
-    stats.forEach((s) => {
-      s.dailyBreakdown.forEach((d) => {
-        rows.push([
-          s.workerName,
-          s.skillLevel === "main" ? "메인" : "서브",
-          d.date,
-          d.dayOfWeek,
-          d.timeSlot + "타임",
-          d.startTime,
-          d.endTime,
-          String(d.minutes),
-        ]);
-      });
-    });
-    const bom = "\uFEFF";
-    const csvContent = bom + rows.map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `알바스케줄_${year}년${String(month).padStart(2, "0")}월.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // 엑셀 내보내기
-  function exportExcel() {
-    const summaryRows = stats.map((s) => ({
-      이름: s.workerName,
-      숙련도: s.skillLevel === "main" ? "메인" : "서브",
-      근무일수: s.workDays,
-      "A타임": s.aTimeDays,
-      "B타임": s.bTimeDays,
-      "C타임": s.cTimeDays,
-      "총근무시간(시간)": Math.round(s.totalMinutes / 60 * 10) / 10,
-    }));
-
-    const detailRows: object[] = [];
-    stats.forEach((s) => {
-      s.dailyBreakdown.forEach((d) => {
-        detailRows.push({
-          이름: s.workerName,
-          숙련도: s.skillLevel === "main" ? "메인" : "서브",
-          날짜: d.date,
-          요일: d.dayOfWeek,
-          타임: d.timeSlot + "타임",
-          출근시간: d.startTime,
-          퇴근시간: d.endTime,
-          "근무시간(분)": d.minutes,
-        });
-      });
-    });
-
-    const wb = XLSX.utils.book_new();
-    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-    const wsDetail = XLSX.utils.json_to_sheet(detailRows);
-    XLSX.utils.book_append_sheet(wb, wsSummary, "요약");
-    XLSX.utils.book_append_sheet(wb, wsDetail, "상세내역");
-    XLSX.writeFile(wb, `알바스케줄_${year}년${String(month).padStart(2, "0")}월.xlsx`);
-  }
 
   return (
     <AppLayout>
@@ -164,7 +337,7 @@ export default function Statistics() {
                 variant="outline"
                 size="sm"
                 className="text-xs gap-1.5 border-border hover:border-primary/50"
-                onClick={exportCSV}
+                onClick={() => openExportDialog("csv")}
               >
                 <Download className="w-3.5 h-3.5" />
                 CSV
@@ -173,7 +346,7 @@ export default function Statistics() {
                 variant="outline"
                 size="sm"
                 className="text-xs gap-1.5 border-border hover:border-primary/50"
-                onClick={exportExcel}
+                onClick={() => openExportDialog("excel")}
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 엑셀
@@ -387,6 +560,77 @@ export default function Statistics() {
           </>
         )}
       </div>
+
+      {/* 급여 계산 내보내기 다이얼로그 */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="max-w-sm bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Calculator className="w-4 h-4 text-primary" />
+              급여 계산 기간 설정
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              각 알바생의 급여일을 입력하면 전월 급여일 다음날부터 당월 급여일까지의 근무를 집계합니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {stats.filter((s) => s.workDays > 0).map((s) => {
+              const day = payConfigs[s.workerId] ?? 14;
+              const { startDate, endDate } = calcPayPeriod(year, month, day);
+              const startD = new Date(startDate + "T00:00:00");
+              const endD = new Date(endDate + "T00:00:00");
+              const periodLabel = `${startD.getMonth() + 1}/${startD.getDate()} ~ ${endD.getMonth() + 1}/${endD.getDate()}`;
+
+              return (
+                <div key={s.workerId} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">{s.workerName}</Label>
+                    <span className="text-xs text-muted-foreground">{periodLabel}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">급여일</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={day}
+                      onChange={(e) => {
+                        const v = Math.min(31, Math.max(1, parseInt(e.target.value) || 1));
+                        setPayConfigs((prev) => ({ ...prev, [s.workerId]: v }));
+                      }}
+                      className="h-8 text-sm w-20 bg-background border-border"
+                    />
+                    <span className="text-xs text-muted-foreground">일</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter className="gap-2 flex-row justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs border-border"
+              onClick={() => setExportDialogOpen(false)}
+            >
+              취소
+            </Button>
+            <Button
+              size="sm"
+              className="text-xs bg-primary hover:bg-primary/90 gap-1.5"
+              onClick={handleExport}
+            >
+              {exportFormat === "csv" ? (
+                <><Download className="w-3.5 h-3.5" /> CSV 다운로드</>
+              ) : (
+                <><FileSpreadsheet className="w-3.5 h-3.5" /> 엑셀 다운로드</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

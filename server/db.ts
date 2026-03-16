@@ -346,28 +346,7 @@ export interface MonthlyWorkerStat {
   dailyBreakdown: { date: string; dayOfWeek: string; timeSlot: string; startTime: string; endTime: string; minutes: number }[];
 }
 
-export async function getMonthlyStats(year: number, month: number): Promise<MonthlyWorkerStat[]> {
-  const db = await getDb();
-  if (!db) return [];
-
-  // 해당 월의 시작/끝 날짜 계산
-  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-  const lastDay = new Date(year, month, 0).getDate();
-  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-
-  const [allWorkers, monthSchedules] = await Promise.all([
-    db.select().from(workers).orderBy(workers.id),
-    db.select().from(schedules)
-      .where(
-        and(
-          gte(schedules.scheduleDate, startDate),
-          lte(schedules.scheduleDate, endDate),
-          eq(schedules.isOperating, true)
-        )
-      )
-      .orderBy(schedules.scheduleDate),
-  ]);
-
+async function buildStats(allWorkers: any[], rangeSchedules: any[]): Promise<MonthlyWorkerStat[]> {
   const stats: MonthlyWorkerStat[] = allWorkers.map((w) => ({
     workerId: w.id,
     workerName: w.name || "",
@@ -380,7 +359,7 @@ export async function getMonthlyStats(year: number, month: number): Promise<Mont
     dailyBreakdown: [],
   }));
 
-  for (const s of monthSchedules) {
+  for (const s of rangeSchedules) {
     const slots: { slot: "a" | "b" | "c"; workerId: number | null; start: string; end: string }[] = [
       { slot: "a", workerId: s.aTimeWorkerId, start: (s as any).aTimeStartTime || "17:30", end: (s as any).aTimeEndTime || "22:00" },
       { slot: "b", workerId: s.bTimeWorkerId, start: (s as any).bTimeStartTime || "18:00", end: (s as any).bTimeEndTime || "22:00" },
@@ -411,4 +390,49 @@ export async function getMonthlyStats(year: number, month: number): Promise<Mont
   }
 
   return stats;
+}
+
+export async function getMonthlyStats(year: number, month: number): Promise<MonthlyWorkerStat[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  // 해당 월의 시작/끝 날짜 계산
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const [allWorkers, monthSchedules] = await Promise.all([
+    db.select().from(workers).orderBy(workers.id),
+    db.select().from(schedules)
+      .where(
+        and(
+          gte(schedules.scheduleDate, startDate),
+          lte(schedules.scheduleDate, endDate),
+          eq(schedules.isOperating, true)
+        )
+      )
+      .orderBy(schedules.scheduleDate),
+  ]);
+
+  return buildStats(allWorkers, monthSchedules);
+}
+
+export async function getStatsByDateRange(startDate: string, endDate: string): Promise<MonthlyWorkerStat[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const [allWorkers, rangeSchedules] = await Promise.all([
+    db.select().from(workers).orderBy(workers.id),
+    db.select().from(schedules)
+      .where(
+        and(
+          gte(schedules.scheduleDate, startDate),
+          lte(schedules.scheduleDate, endDate),
+          eq(schedules.isOperating, true)
+        )
+      )
+      .orderBy(schedules.scheduleDate),
+  ]);
+
+  return buildStats(allWorkers, rangeSchedules);
 }
