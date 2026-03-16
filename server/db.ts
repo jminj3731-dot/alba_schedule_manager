@@ -203,6 +203,34 @@ export async function updateScheduleEndTime(data: {
   return { success: true };
 }
 
+export async function updateScheduleTime(data: {
+  scheduleDate: string;
+  timeSlot: "a" | "b" | "c";
+  startTime?: string;
+  endTime?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getScheduleByDate(data.scheduleDate);
+  if (!existing) throw new Error("Schedule not found for date: " + data.scheduleDate);
+
+  const updateField: Record<string, string> = {};
+  if (data.startTime !== undefined) {
+    if (data.timeSlot === "a") updateField.aTimeStartTime = data.startTime;
+    else if (data.timeSlot === "b") updateField.bTimeStartTime = data.startTime;
+    else updateField.cTimeStartTime = data.startTime;
+  }
+  if (data.endTime !== undefined) {
+    if (data.timeSlot === "a") updateField.aTimeEndTime = data.endTime;
+    else if (data.timeSlot === "b") updateField.bTimeEndTime = data.endTime;
+    else updateField.cTimeEndTime = data.endTime;
+  }
+
+  if (Object.keys(updateField).length === 0) return { success: true };
+  await db.update(schedules).set(updateField).where(eq(schedules.id, existing.id));
+  return { success: true };
+}
+
 export async function getWorkerByName(name: string) {
   const db = await getDb();
   if (!db) return undefined;

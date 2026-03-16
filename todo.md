@@ -89,3 +89,11 @@
 - [x] Home.tsx: 시간 선택 팝오버 (19:00~23:30, 30분 단위)
 - [x] FullSchedule.tsx: 전체 스케줄 표에 퇴근 시간 표시
 - [x] 30개 테스트 모두 통과
+
+## v9 Master 출근/퇴근 시간 편집 기능
+- [x] DB: schedules 테이블에 aTimeStartTime, bTimeStartTime, cTimeStartTime 컬럼 추가
+- [x] 백엔드: updateScheduleTime API 확장 (출근+퇴근 시간 동시 수정)
+- [x] Master.tsx: 타임별 출근/퇴근 시간 편집 UI 추가 (시계 아이콘 버튼 + 팝오버)
+- [x] Home.tsx: 출근 시간 DB에서 읽도록 반영
+- [x] FullSchedule.tsx: 출근 시간 DB에서 읽도록 반영
+- [x] 30개 테스트 모두 통과

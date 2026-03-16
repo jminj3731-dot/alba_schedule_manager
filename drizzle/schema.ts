@@ -56,6 +56,12 @@ export const schedules = mysqlTable("schedules", {
   bTimeWorkerId: int("bTimeWorkerId"),
   /** C타임 배정 알바생 ID (nullable, 주말만 사용) */
   cTimeWorkerId: int("cTimeWorkerId"),
+  /** A타임 출근 시간 (예: "17:30", nullable = 기본값 사용) */
+  aTimeStartTime: varchar("aTimeStartTime", { length: 10 }),
+  /** B타임 출근 시간 (예: "18:00", nullable = 기본값 사용) */
+  bTimeStartTime: varchar("bTimeStartTime", { length: 10 }),
+  /** C타임 출근 시간 (예: "18:00", nullable = 기본값 사용) */
+  cTimeStartTime: varchar("cTimeStartTime", { length: 10 }),
   /** A타임 퇴근 시간 (예: "22:00", nullable = 기본값 사용) */
   aTimeEndTime: varchar("aTimeEndTime", { length: 10 }),
   /** B타임 퇴근 시간 (예: "22:00", nullable = 기본값 사용) */

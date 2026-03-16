@@ -13,18 +13,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Wand2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Wand2, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 const WEEKEND_DAYS = ["금", "토"];
 const NONE_VALUE = "__none__";
+
+const START_TIMES = ["17:00", "17:30", "18:00", "18:30", "19:00", "19:30"];
+const END_TIMES = ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00", "23:30"];
+
+// 기본 출근/퇴근 시간
+const DEFAULT_START: Record<string, string> = { a: "17:30", b: "18:00", c: "18:00" };
+const DEFAULT_END = "22:00";
 
 function toLocalDateStr(d: Date): string {
   const y = d.getFullYear();
@@ -64,12 +76,15 @@ interface ScheduleRow {
   aTimeWorkerId: number | null;
   bTimeWorkerId: number | null;
   cTimeWorkerId: number | null;
+  aTimeStartTime?: string | null;
+  bTimeStartTime?: string | null;
+  cTimeStartTime?: string | null;
+  aTimeEndTime?: string | null;
+  bTimeEndTime?: string | null;
+  cTimeEndTime?: string | null;
 }
 
-function validateRow(
-  row: ScheduleRow,
-  workers: any[]
-): { type: string; message: string }[] {
+function validateRow(row: ScheduleRow, workers: any[]): { type: string; message: string }[] {
   const errors: { type: string; message: string }[] = [];
   if (!row.isOperating) return errors;
 
@@ -127,6 +142,16 @@ export default function Master() {
     },
   });
 
+  const updateTimeMutation = trpc.schedules.updateTime.useMutation({
+    onSuccess: () => {
+      utils.schedules.getByDateRange.invalidate({ startDate, endDate });
+      toast.success("시간이 저장되었습니다.");
+    },
+    onError: () => {
+      toast.error("시간 저장에 실패했습니다.");
+    },
+  });
+
   const autoAssignMutation = trpc.schedules.autoAssign.useMutation({
     onSuccess: (result) => {
       utils.schedules.getByDateRange.invalidate({ startDate, endDate });
@@ -155,6 +180,12 @@ export default function Master() {
             aTimeWorkerId: existing.aTimeWorkerId,
             bTimeWorkerId: existing.bTimeWorkerId,
             cTimeWorkerId: existing.cTimeWorkerId,
+            aTimeStartTime: (existing as any).aTimeStartTime,
+            bTimeStartTime: (existing as any).bTimeStartTime,
+            cTimeStartTime: (existing as any).cTimeStartTime,
+            aTimeEndTime: (existing as any).aTimeEndTime,
+            bTimeEndTime: (existing as any).bTimeEndTime,
+            cTimeEndTime: (existing as any).cTimeEndTime,
           }
         : {
             scheduleDate: d.dateStr,
@@ -180,6 +211,10 @@ export default function Master() {
       bTimeWorkerId: row.bTimeWorkerId,
       cTimeWorkerId: row.cTimeWorkerId,
     });
+  }
+
+  function handleUpdateTime(dateStr: string, timeSlot: "a" | "b" | "c", startTime?: string, endTime?: string) {
+    updateTimeMutation.mutate({ scheduleDate: dateStr, timeSlot, startTime, endTime });
   }
 
   function handleAutoAssign() {
@@ -272,31 +307,46 @@ export default function Master() {
 
                   {/* Time slots */}
                   {row.isOperating && (
-                    <div className="space-y-1.5">
-                      <TimeSlotSelect
-                        label="A타임"
-                        time="17:30~22:00"
-                        value={row.aTimeWorkerId}
+                    <div className="space-y-2">
+                      <TimeSlotRow
+                        label="A"
+                        timeSlot="a"
+                        startTime={row.aTimeStartTime || DEFAULT_START.a}
+                        endTime={row.aTimeEndTime || DEFAULT_END}
+                        workerId={row.aTimeWorkerId}
                         workers={workers}
                         dayOfWeek={d.dayName}
-                        onChange={(id) => saveSchedule(d.dateStr, { aTimeWorkerId: id })}
+                        scheduleDate={d.dateStr}
+                        hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
+                        onWorkerChange={(id) => saveSchedule(d.dateStr, { aTimeWorkerId: id })}
+                        onTimeChange={handleUpdateTime}
                       />
-                      <TimeSlotSelect
-                        label="B타임"
-                        time="18:00~22:00"
-                        value={row.bTimeWorkerId}
+                      <TimeSlotRow
+                        label="B"
+                        timeSlot="b"
+                        startTime={row.bTimeStartTime || DEFAULT_START.b}
+                        endTime={row.bTimeEndTime || DEFAULT_END}
+                        workerId={row.bTimeWorkerId}
                         workers={workers}
                         dayOfWeek={d.dayName}
-                        onChange={(id) => saveSchedule(d.dateStr, { bTimeWorkerId: id })}
+                        scheduleDate={d.dateStr}
+                        hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
+                        onWorkerChange={(id) => saveSchedule(d.dateStr, { bTimeWorkerId: id })}
+                        onTimeChange={handleUpdateTime}
                       />
                       {isWeekend && (
-                        <TimeSlotSelect
-                          label="C타임"
-                          time="18:00~22:00"
-                          value={row.cTimeWorkerId}
+                        <TimeSlotRow
+                          label="C"
+                          timeSlot="c"
+                          startTime={row.cTimeStartTime || DEFAULT_START.c}
+                          endTime={row.cTimeEndTime || DEFAULT_END}
+                          workerId={row.cTimeWorkerId}
                           workers={workers}
                           dayOfWeek={d.dayName}
-                          onChange={(id) => saveSchedule(d.dateStr, { cTimeWorkerId: id })}
+                          scheduleDate={d.dateStr}
+                          hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
+                          onWorkerChange={(id) => saveSchedule(d.dateStr, { cTimeWorkerId: id })}
+                          onTimeChange={handleUpdateTime}
                         />
                       )}
                     </div>
@@ -371,35 +421,136 @@ export default function Master() {
   );
 }
 
-function TimeSlotSelect({
+// ─── TimeSlotRow ──────────────────────────────────────────────────────────────
+function TimeSlotRow({
   label,
-  time,
-  value,
+  timeSlot,
+  startTime,
+  endTime,
+  workerId,
   workers,
   dayOfWeek,
-  onChange,
+  scheduleDate,
+  hasSchedule,
+  onWorkerChange,
+  onTimeChange,
 }: {
   label: string;
-  time: string;
-  value: number | null;
+  timeSlot: "a" | "b" | "c";
+  startTime: string;
+  endTime: string;
+  workerId: number | null;
   workers: any[];
   dayOfWeek: string;
-  onChange: (id: number | null) => void;
+  scheduleDate: string;
+  hasSchedule: boolean;
+  onWorkerChange: (id: number | null) => void;
+  onTimeChange: (dateStr: string, slot: "a" | "b" | "c", startTime?: string, endTime?: string) => void;
 }) {
-  const isViolation = isDayOffViolation(value, dayOfWeek, workers);
+  const [startOpen, setStartOpen] = useState(false);
+  const [endOpen, setEndOpen] = useState(false);
+  const isViolation = isDayOffViolation(workerId, dayOfWeek, workers);
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-20 shrink-0">
-        <span className="text-xs font-medium">{label}</span>
-        <span className="text-[10px] text-muted-foreground block">{time}</span>
+    <div className="space-y-1">
+      {/* 타임 라벨 + 시간 편집 */}
+      <div className="flex items-center gap-2">
+        <span
+          className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold shrink-0 ${
+            label === "A" ? "bg-primary/30 text-primary" : "bg-secondary text-secondary-foreground"
+          }`}
+        >
+          {label}
+        </span>
+
+        {/* 출근 시간 선택 */}
+        <Popover open={startOpen} onOpenChange={setStartOpen}>
+          <PopoverTrigger asChild>
+            <button
+              className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded border transition-colors ${
+                hasSchedule
+                  ? "border-border/60 bg-secondary/30 hover:bg-secondary/60 text-foreground cursor-pointer"
+                  : "border-border/30 bg-muted/20 text-muted-foreground cursor-not-allowed"
+              }`}
+              disabled={!hasSchedule}
+              title={hasSchedule ? "출근 시간 수정" : "먼저 알바생을 배정하세요"}
+            >
+              <Clock className="w-3 h-3" />
+              <span>{startTime}</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-36 p-1 bg-card border-border" align="start">
+            <p className="text-[10px] text-muted-foreground px-2 py-1 font-medium">출근 시간</p>
+            <div className="grid grid-cols-2 gap-0.5">
+              {START_TIMES.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    onTimeChange(scheduleDate, timeSlot, t, undefined);
+                    setStartOpen(false);
+                  }}
+                  className={`text-xs px-2 py-1.5 rounded text-left transition-colors ${
+                    t === startTime
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : "hover:bg-secondary text-foreground"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <span className="text-[10px] text-muted-foreground">~</span>
+
+        {/* 퇴근 시간 선택 */}
+        <Popover open={endOpen} onOpenChange={setEndOpen}>
+          <PopoverTrigger asChild>
+            <button
+              className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded border transition-colors ${
+                hasSchedule
+                  ? "border-border/60 bg-secondary/30 hover:bg-secondary/60 text-foreground cursor-pointer"
+                  : "border-border/30 bg-muted/20 text-muted-foreground cursor-not-allowed"
+              }`}
+              disabled={!hasSchedule}
+              title={hasSchedule ? "퇴근 시간 수정" : "먼저 알바생을 배정하세요"}
+            >
+              <Clock className="w-3 h-3" />
+              <span>{endTime}</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-36 p-1 bg-card border-border" align="start">
+            <p className="text-[10px] text-muted-foreground px-2 py-1 font-medium">퇴근 시간</p>
+            <div className="grid grid-cols-2 gap-0.5">
+              {END_TIMES.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    onTimeChange(scheduleDate, timeSlot, undefined, t);
+                    setEndOpen(false);
+                  }}
+                  className={`text-xs px-2 py-1.5 rounded text-left transition-colors ${
+                    t === endTime
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : "hover:bg-secondary text-foreground"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
+
+      {/* 알바생 선택 드롭다운 */}
       <Select
-        value={value ? String(value) : NONE_VALUE}
-        onValueChange={(v) => onChange(v === NONE_VALUE ? null : Number(v))}
+        value={workerId ? String(workerId) : NONE_VALUE}
+        onValueChange={(v) => onWorkerChange(v === NONE_VALUE ? null : Number(v))}
       >
         <SelectTrigger
-          className={`h-9 text-xs flex-1 ${
+          className={`h-8 text-xs ml-7 ${
             isViolation
               ? "bg-destructive/20 border-destructive/50 text-destructive"
               : "bg-secondary/50"

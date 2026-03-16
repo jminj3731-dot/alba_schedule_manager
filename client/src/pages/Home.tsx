@@ -142,16 +142,19 @@ export default function Home() {
   function getMyTimeSlot(schedule: any) {
     if (!currentWorker) return null;
     if (schedule.aTimeWorkerId === currentWorker.id) {
+      const startTime = schedule.aTimeStartTime || "17:30";
       const endTime = schedule.aTimeEndTime || "22:00";
-      return { label: "A", slot: "a" as const, startTime: "17:30", endTime, time: `17:30~${endTime}` };
+      return { label: "A", slot: "a" as const, startTime, endTime, time: `${startTime}~${endTime}` };
     }
     if (schedule.bTimeWorkerId === currentWorker.id) {
+      const startTime = schedule.bTimeStartTime || "18:00";
       const endTime = schedule.bTimeEndTime || "22:00";
-      return { label: "B", slot: "b" as const, startTime: "18:00", endTime, time: `18:00~${endTime}` };
+      return { label: "B", slot: "b" as const, startTime, endTime, time: `${startTime}~${endTime}` };
     }
     if (schedule.cTimeWorkerId === currentWorker.id) {
+      const startTime = schedule.cTimeStartTime || "18:00";
       const endTime = schedule.cTimeEndTime || "22:00";
-      return { label: "C", slot: "c" as const, startTime: "18:00", endTime, time: `18:00~${endTime}` };
+      return { label: "C", slot: "c" as const, startTime, endTime, time: `${startTime}~${endTime}` };
     }
     return null;
   }
