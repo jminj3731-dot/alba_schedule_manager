@@ -273,6 +273,7 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
+
   statistics: router({
     monthly: publicProcedure
       .input(z.object({ year: z.number(), month: z.number() }))

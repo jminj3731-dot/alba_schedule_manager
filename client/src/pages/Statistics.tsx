@@ -4,7 +4,8 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, BarChart3, Clock, Calendar, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, BarChart3, Clock, Calendar, TrendingUp, Download, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import {
   BarChart,
   Bar,
@@ -78,6 +79,72 @@ export default function Statistics() {
 
   const selectedStat = selectedWorker !== null ? stats.find((s) => s.workerId === selectedWorker) : null;
 
+  // CSV 내보내기
+  function exportCSV() {
+    const rows: string[][] = [
+      ["이름", "숙련도", "날짜", "요일", "타임", "출근시간", "퇴근시간", "근무시간(분)"],
+    ];
+    stats.forEach((s) => {
+      s.dailyBreakdown.forEach((d) => {
+        rows.push([
+          s.workerName,
+          s.skillLevel === "main" ? "메인" : "서브",
+          d.date,
+          d.dayOfWeek,
+          d.timeSlot + "타임",
+          d.startTime,
+          d.endTime,
+          String(d.minutes),
+        ]);
+      });
+    });
+    const bom = "\uFEFF";
+    const csvContent = bom + rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `알바스케줄_${year}년${String(month).padStart(2, "0")}월.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // 엑셀 내보내기
+  function exportExcel() {
+    const summaryRows = stats.map((s) => ({
+      이름: s.workerName,
+      숙련도: s.skillLevel === "main" ? "메인" : "서브",
+      근무일수: s.workDays,
+      "A타임": s.aTimeDays,
+      "B타임": s.bTimeDays,
+      "C타임": s.cTimeDays,
+      "총근무시간(시간)": Math.round(s.totalMinutes / 60 * 10) / 10,
+    }));
+
+    const detailRows: object[] = [];
+    stats.forEach((s) => {
+      s.dailyBreakdown.forEach((d) => {
+        detailRows.push({
+          이름: s.workerName,
+          숙련도: s.skillLevel === "main" ? "메인" : "서브",
+          날짜: d.date,
+          요일: d.dayOfWeek,
+          타임: d.timeSlot + "타임",
+          출근시간: d.startTime,
+          퇴근시간: d.endTime,
+          "근무시간(분)": d.minutes,
+        });
+      });
+    });
+
+    const wb = XLSX.utils.book_new();
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+    XLSX.utils.book_append_sheet(wb, wsSummary, "요약");
+    XLSX.utils.book_append_sheet(wb, wsDetail, "상세내역");
+    XLSX.writeFile(wb, `알바스케줄_${year}년${String(month).padStart(2, "0")}월.xlsx`);
+  }
+
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto space-y-4">
@@ -90,6 +157,29 @@ export default function Statistics() {
             </h2>
             <p className="text-sm text-muted-foreground">알바생별 근무 일수 및 시간 집계</p>
           </div>
+          {/* 내보내기 버튼 */}
+          {stats.length > 0 && stats.some((s) => s.workDays > 0) && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5 border-border hover:border-primary/50"
+                onClick={exportCSV}
+              >
+                <Download className="w-3.5 h-3.5" />
+                CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5 border-border hover:border-primary/50"
+                onClick={exportExcel}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                엑셀
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Month navigation */}

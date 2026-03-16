@@ -108,3 +108,11 @@
 - [x] AppLayout: 통계 탭 추가
 - [x] App.tsx: /statistics 라우팅 추가
 - [x] 30개 테스트 모두 통과
+
+## v11 엑셀/CSV 내보내기 기능
+- [x] 백엔드: 기존 statistics.monthly API 재활용 (dailyBreakdown 포함)
+- [x] 프론트엔드: CSV 내보내기 버튼 (BOM 포함, 한글 깨짐 방지)
+- [x] 프론트엔드: 엑셀(XLSX) 내보내기 버튼 — 요약/상세내역 2개 시트
+- [x] 내보내기 데이터 형식: 이름, 숙련도, 날짜, 요일, 타임, 출근시간, 퇴근시간, 근무시간
+- [x] 파일명: 알바스케줄_YYYY년MM월.csv / .xlsx
+- [x] 30개 테스트 모두 통과
