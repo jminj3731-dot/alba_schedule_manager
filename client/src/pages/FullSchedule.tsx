@@ -84,23 +84,7 @@ export default function FullSchedule() {
     return ids.some((id) => workerMap[id!]?.skillLevel === "main");
   }
 
-  function isRestrictedAssignment(schedule: typeof schedules[0]) {
-    // 정우주가 목요일 또는 일요일에 배치된 경우
-    const wooJuWorker = workers.find((w) => w.name === "정우주");
-    if (!wooJuWorker) return false;
-    const dayName = schedule.dayOfWeek?.trim();
-    // 목요일(목) 또는 일요일(일)에만 경고 표시
-    if (dayName !== "목" && dayName !== "일") {
-      return false;
-    }
-    // 정우주가 이 날짜에 배치되었는지 확인
-    const isAssigned = (
-      schedule.aTimeWorkerId === wooJuWorker.id ||
-      schedule.bTimeWorkerId === wooJuWorker.id ||
-      schedule.cTimeWorkerId === wooJuWorker.id
-    );
-    return isAssigned;
-  }
+
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -161,7 +145,6 @@ export default function FullSchedule() {
               const isOff = schedule && !schedule.isOperating;
               const noSchedule = !schedule;
               const hasError = schedule && schedule.isOperating && !hasMainWorker(schedule);
-              const hasWarning = schedule && schedule.isOperating && isRestrictedAssignment(schedule);
 
               if (isOff) {
                 return (
@@ -204,8 +187,6 @@ export default function FullSchedule() {
                   className={`border transition-all ${
                     hasError
                       ? "border-destructive/60 bg-destructive/5"
-                      : hasWarning
-                      ? "border-yellow-500/60 bg-yellow-500/5"
                       : today
                       ? "border-primary/40 bg-card"
                       : "border-border bg-card"
@@ -228,12 +209,7 @@ export default function FullSchedule() {
                             <span>메인 숙련자 없음 — 오류 확인 필요</span>
                           </div>
                         )}
-                        {hasWarning && !hasError && (
-                          <div className="flex items-center gap-1.5 text-yellow-500 text-xs">
-                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                            <span>정우주 근무 제한 요일 배치</span>
-                          </div>
-                        )}
+
 
                         {/* 타임별 배치 */}
                         <div className="space-y-1.5">
