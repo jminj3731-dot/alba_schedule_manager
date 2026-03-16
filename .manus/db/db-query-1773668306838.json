@@ -1,0 +1,18 @@
+{
+  "query": "SELECT scheduleDate, dayOfWeek, isOperating, aTimeWorkerId, bTimeWorkerId, cTimeWorkerId FROM schedules WHERE scheduleDate = '2026-03-16';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2A8Aro7D2nxffKJ.root --database o2y7YjaHBsMCC4pdAvoHmq --execute SELECT scheduleDate, dayOfWeek, isOperating, aTimeWorkerId, bTimeWorkerId, cTimeWorkerId FROM schedules WHERE scheduleDate = '2026-03-16';",
+  "rows": [
+    {
+      "scheduleDate": "2026-03-16",
+      "dayOfWeek": "월",
+      "isOperating": "1",
+      "aTimeWorkerId": "3",
+      "bTimeWorkerId": "4",
+      "cTimeWorkerId": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "scheduleDate\tdayOfWeek\tisOperating\taTimeWorkerId\tbTimeWorkerId\tcTimeWorkerId\n2026-03-16\t월\t1\t3\t4\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 1609
+}

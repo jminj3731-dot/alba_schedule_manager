@@ -88,13 +88,18 @@ export default function FullSchedule() {
     // 정우주가 목요일 또는 일요일에 배치된 경우
     const wooJuWorker = workers.find((w) => w.name === "정우주");
     if (!wooJuWorker) return false;
-    const dayName = schedule.dayOfWeek;
-    if (dayName !== "목" && dayName !== "일") return false;
-    return (
+    const dayName = schedule.dayOfWeek?.trim();
+    // 목요일(목) 또는 일요일(일)에만 경고 표시
+    if (dayName !== "목" && dayName !== "일") {
+      return false;
+    }
+    // 정우주가 이 날짜에 배치되었는지 확인
+    const isAssigned = (
       schedule.aTimeWorkerId === wooJuWorker.id ||
       schedule.bTimeWorkerId === wooJuWorker.id ||
       schedule.cTimeWorkerId === wooJuWorker.id
     );
+    return isAssigned;
   }
 
   return (

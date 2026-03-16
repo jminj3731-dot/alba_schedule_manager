@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, name, skillLevel, fixedDaysOff, preferredDays FROM workers WHERE name = '정우주';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2A8Aro7D2nxffKJ.root --database o2y7YjaHBsMCC4pdAvoHmq --execute SELECT id, name, skillLevel, fixedDaysOff, preferredDays FROM workers WHERE name = '정우주';",
+  "rows": [
+    {
+      "id": "4",
+      "name": "정우주",
+      "skillLevel": "sub",
+      "fixedDaysOff": "목,일",
+      "preferredDays": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tskillLevel\tfixedDaysOff\tpreferredDays\n4\t정우주\tsub\t목,일\t\n",
+  "stderr": "",
+  "execution_time_ms": 1580
+}

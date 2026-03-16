@@ -1,0 +1,59 @@
+{
+  "query": "SELECT scheduleDate, dayOfWeek, aTimeWorkerId, bTimeWorkerId, cTimeWorkerId FROM schedules WHERE scheduleDate BETWEEN '2026-03-15' AND '2026-03-21' ORDER BY scheduleDate;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2A8Aro7D2nxffKJ.root --database o2y7YjaHBsMCC4pdAvoHmq --execute SELECT scheduleDate, dayOfWeek, aTimeWorkerId, bTimeWorkerId, cTimeWorkerId FROM schedules WHERE scheduleDate BETWEEN '2026-03-15' AND '2026-03-21' ORDER BY scheduleDate;",
+  "rows": [
+    {
+      "scheduleDate": "2026-03-15",
+      "dayOfWeek": "일",
+      "aTimeWorkerId": "1",
+      "bTimeWorkerId": "3",
+      "cTimeWorkerId": "NULL"
+    },
+    {
+      "scheduleDate": "2026-03-16",
+      "dayOfWeek": "월",
+      "aTimeWorkerId": "3",
+      "bTimeWorkerId": "4",
+      "cTimeWorkerId": "NULL"
+    },
+    {
+      "scheduleDate": "2026-03-17",
+      "dayOfWeek": "화",
+      "aTimeWorkerId": "2",
+      "bTimeWorkerId": "4",
+      "cTimeWorkerId": "NULL"
+    },
+    {
+      "scheduleDate": "2026-03-18",
+      "dayOfWeek": "수",
+      "aTimeWorkerId": "1",
+      "bTimeWorkerId": "4",
+      "cTimeWorkerId": "NULL"
+    },
+    {
+      "scheduleDate": "2026-03-19",
+      "dayOfWeek": "목",
+      "aTimeWorkerId": "2",
+      "bTimeWorkerId": "3",
+      "cTimeWorkerId": "NULL"
+    },
+    {
+      "scheduleDate": "2026-03-20",
+      "dayOfWeek": "금",
+      "aTimeWorkerId": "1",
+      "bTimeWorkerId": "3",
+      "cTimeWorkerId": "2"
+    },
+    {
+      "scheduleDate": "2026-03-21",
+      "dayOfWeek": "토",
+      "aTimeWorkerId": "1",
+      "bTimeWorkerId": "4",
+      "cTimeWorkerId": "2"
+    }
+  ],
+  "messages": [],
+  "stdout": "scheduleDate\tdayOfWeek\taTimeWorkerId\tbTimeWorkerId\tcTimeWorkerId\n2026-03-15\t일\t1\t3\tNULL\n2026-03-16\t월\t3\t4\tNULL\n2026-03-17\t화\t2\t4\tNULL\n2026-03-18\t수\t1\t4\tNULL\n2026-03-19\t목\t2\t3\tNULL\n2026-03-20\t금\t1\t3\t2\n2026-03-21\t토\t1\t4\t2\n",
+  "stderr": "",
+  "execution_time_ms": 1623
+}

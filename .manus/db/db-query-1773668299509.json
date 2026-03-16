@@ -1,0 +1,38 @@
+{
+  "query": "SELECT id, name, skillLevel, fixedDaysOff, preferredDays FROM workers;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2A8Aro7D2nxffKJ.root --database o2y7YjaHBsMCC4pdAvoHmq --execute SELECT id, name, skillLevel, fixedDaysOff, preferredDays FROM workers;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "전민서",
+      "skillLevel": "main",
+      "fixedDaysOff": "",
+      "preferredDays": "금,토"
+    },
+    {
+      "id": "2",
+      "name": "전성진",
+      "skillLevel": "main",
+      "fixedDaysOff": "",
+      "preferredDays": "월,수"
+    },
+    {
+      "id": "3",
+      "name": "정수환",
+      "skillLevel": "sub",
+      "fixedDaysOff": "토",
+      "preferredDays": ""
+    },
+    {
+      "id": "4",
+      "name": "정우주",
+      "skillLevel": "sub",
+      "fixedDaysOff": "목,일",
+      "preferredDays": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tskillLevel\tfixedDaysOff\tpreferredDays\n1\t전민서\tmain\t\t금,토\n2\t전성진\tmain\t\t월,수\n3\t정수환\tsub\t토\t\n4\t정우주\tsub\t목,일\t\n",
+  "stderr": "",
+  "execution_time_ms": 1520
+}
