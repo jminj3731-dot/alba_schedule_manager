@@ -71,3 +71,8 @@
 - [x] FullSchedule.tsx - 정우주 경고 표시 로직 제거
 - [x] Master.tsx - 정우주 제약 검증 로직 없음
 - [x] 모든 알바생 동등 처리 확인
+
+## v6 날짜 버그 수정
+- [x] Master.tsx getWeekDates 함수 날짜 계산 버그 수정 (toISOString UTC 오프셋 문제 → toLocalDateStr 함수로 교체)
+- [x] FullSchedule.tsx 동일 버그 수정
+- [x] Home.tsx 동일 버그 수정

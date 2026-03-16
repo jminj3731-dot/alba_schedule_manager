@@ -16,18 +16,26 @@ import { useLocation } from "wouter";
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 const WEEKEND_DAYS = ["금", "토"];
 
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function getWeekDates(offset: number) {
   const now = new Date();
   const dayOfWeek = now.getDay();
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - dayOfWeek + offset * 7);
+  startOfWeek.setHours(0, 0, 0, 0);
   const dates = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(startOfWeek);
     d.setDate(startOfWeek.getDate() + i);
     dates.push({
       date: d,
-      dateStr: d.toISOString().split("T")[0],
+      dateStr: toLocalDateStr(d),
       dayName: DAY_NAMES[d.getDay()],
     });
   }
@@ -35,7 +43,7 @@ function getWeekDates(offset: number) {
 }
 
 function isToday(dateStr: string) {
-  return dateStr === new Date().toISOString().split("T")[0];
+  return dateStr === toLocalDateStr(new Date());
 }
 
 export default function FullSchedule() {
