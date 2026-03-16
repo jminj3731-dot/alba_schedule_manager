@@ -24,6 +24,7 @@ import {
   Lock,
   LogOut,
   CalendarCheck,
+  Users,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -192,6 +193,14 @@ export default function Home() {
               <Button onClick={handleLogin} className="w-full h-12 text-base gap-2">
                 <Search className="w-4 h-4" />
                 내 스케줄 확인
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/full-schedule")}
+                className="w-full h-11 text-sm gap-2 bg-transparent border-border/60 text-muted-foreground hover:text-foreground hover:border-primary/40"
+              >
+                <Users className="w-4 h-4" />
+                전체 스케줄 확인
               </Button>
             </div>
 

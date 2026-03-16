@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Settings from "./pages/Settings";
 import Master from "./pages/Master";
+import FullSchedule from "./pages/FullSchedule";
 
 function Router() {
   return (
@@ -14,6 +15,7 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/settings"} component={Settings} />
       <Route path={"/master"} component={Master} />
+      <Route path={"/full-schedule"} component={FullSchedule} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>
