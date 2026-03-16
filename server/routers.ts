@@ -14,6 +14,10 @@ import {
   getSchedulesForWorker,
   upsertSchedule,
   getWeeklyWorkerCounts,
+  getNotificationsByWorkerId,
+  markNotificationAsRead,
+  notifyWorkerOnScheduleView,
+  notifyWorkerOnPreferredDaysUpdate,
 } from "./db";
 
 const WEEKEND_DAYS = ["금", "토"];
@@ -206,6 +210,43 @@ export const appRouter = router({
         }
 
         return { success: true, results };
+      }),
+  }),
+
+  notifications: router({
+    getByWorkerId: publicProcedure
+      .input(z.object({ workerId: z.number() }))
+      .query(async ({ input }) => {
+        return getNotificationsByWorkerId(input.workerId);
+      }),
+
+    markAsRead: publicProcedure
+      .input(z.object({ notificationId: z.number() }))
+      .mutation(async ({ input }) => {
+        await markNotificationAsRead(input.notificationId);
+        return { success: true };
+      }),
+
+    notifyScheduleView: publicProcedure
+      .input(z.object({ workerId: z.number(), workerName: z.string() }))
+      .mutation(async ({ input }) => {
+        // 전민서는 알림 발송 안 함
+        if (input.workerName === "전민서") {
+          return { success: true, skipped: true };
+        }
+        await notifyWorkerOnScheduleView(input.workerId, input.workerName);
+        return { success: true };
+      }),
+
+    notifyPreferredDaysUpdate: publicProcedure
+      .input(z.object({ workerId: z.number(), workerName: z.string(), preferredDays: z.string() }))
+      .mutation(async ({ input }) => {
+        // 전민서는 알림 발송 안 함
+        if (input.workerName === "전민서") {
+          return { success: true, skipped: true };
+        }
+        await notifyWorkerOnPreferredDaysUpdate(input.workerId, input.workerName, input.preferredDays);
+        return { success: true };
       }),
   }),
 });

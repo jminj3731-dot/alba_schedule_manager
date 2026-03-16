@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `notificationLogs` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`workerId` int NOT NULL,\n\t`notificationType` enum('schedule_view','preferred_days_update') NOT NULL,\n\t`title` varchar(200) NOT NULL,\n\t`message` text NOT NULL,\n\t`isRead` boolean NOT NULL DEFAULT false,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `notificationLogs_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2A8Aro7D2nxffKJ.root --database o2y7YjaHBsMCC4pdAvoHmq --execute CREATE TABLE `notificationLogs` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`workerId` int NOT NULL,\n\t`notificationType` enum('schedule_view','preferred_days_update') NOT NULL,\n\t`title` varchar(200) NOT NULL,\n\t`message` text NOT NULL,\n\t`isRead` boolean NOT NULL DEFAULT false,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `notificationLogs_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1818
+}

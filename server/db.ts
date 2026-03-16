@@ -1,6 +1,6 @@
-import { eq, and, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, workers, schedules, type InsertWorker, type InsertSchedule } from "../drizzle/schema";
+import { InsertUser, users, workers, schedules, notificationLogs, type InsertWorker, type InsertSchedule, type InsertNotificationLog } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -226,4 +226,45 @@ export async function getWeeklyWorkerCounts(startDate: string, endDate: string) 
     }
   }
   return counts;
+}
+
+// ============ Notification Logs CRUD ============
+
+export async function createNotification(data: InsertNotificationLog) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(notificationLogs).values(data);
+  return { id: result[0].insertId };
+}
+
+export async function getNotificationsByWorkerId(workerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(notificationLogs)
+    .where(eq(notificationLogs.workerId, workerId))
+    .orderBy((t) => t.createdAt);
+}
+
+export async function markNotificationAsRead(notificationId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(notificationLogs).set({ isRead: true }).where(eq(notificationLogs.id, notificationId));
+}
+
+export async function notifyWorkerOnScheduleView(workerId: number, workerName: string) {
+  return createNotification({
+    workerId,
+    notificationType: "schedule_view",
+    title: `${workerName}님의 스케줄 확인`,
+    message: `${workerName}님이 이번 주 스케줄을 확인했습니다.`,
+  });
+}
+
+export async function notifyWorkerOnPreferredDaysUpdate(workerId: number, workerName: string, preferredDays: string) {
+  return createNotification({
+    workerId,
+    notificationType: "preferred_days_update",
+    title: `${workerName}님의 선호 근무일 수정`,
+    message: `${workerName}님이 선호 근무일을 ${preferredDays}로 수정했습니다.`,
+  });
 }

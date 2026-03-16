@@ -75,10 +75,20 @@ export default function Home() {
   const { data: schedules = [] } = trpc.schedules.getByDateRange.useQuery({ startDate, endDate });
   const utils = trpc.useUtils();
 
+  const notifyScheduleViewMutation = trpc.notifications.notifyScheduleView.useMutation();
+  const notifyPreferredDaysUpdateMutation = trpc.notifications.notifyPreferredDaysUpdate.useMutation();
+
   const updateMutation = trpc.workers.update.useMutation({
     onSuccess: () => {
       utils.workers.list.invalidate();
       toast.success("선호 근무일이 저장되었습니다.");
+      if (currentWorker) {
+        notifyPreferredDaysUpdateMutation.mutate({
+          workerId: currentWorker.id,
+          workerName: currentWorker.name,
+          preferredDays: prefDays.join(","),
+        });
+      }
       setPrefDialogOpen(false);
     },
   });
@@ -119,8 +129,13 @@ export default function Home() {
       return;
     }
     setLoggedInName(name);
-    // Load preferred days
     setPrefDays(found.preferredDays ? found.preferredDays.split(",").filter(Boolean) : []);
+    if (name !== "전민서") {
+      notifyScheduleViewMutation.mutate({
+        workerId: found.id,
+        workerName: name,
+      });
+    }
   }
 
   function handleLogout() {

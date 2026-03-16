@@ -62,3 +62,25 @@ export const schedules = mysqlTable("schedules", {
 
 export type Schedule = typeof schedules.$inferSelect;
 export type InsertSchedule = typeof schedules.$inferInsert;
+
+/**
+ * NotificationLogs table - 알림 로그 기록
+ * 알바생별 알림 발송 내역 기록
+ */
+export const notificationLogs = mysqlTable("notificationLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 알림을 받는 알바생 ID */
+  workerId: int("workerId").notNull(),
+  /** 알림 유형 (schedule_view = 스케줄 조회, preferred_days_update = 선호 근무일 수정) */
+  notificationType: mysqlEnum("notificationType", ["schedule_view", "preferred_days_update"]).notNull(),
+  /** 알림 제목 */
+  title: varchar("title", { length: 200 }).notNull(),
+  /** 알림 내용 */
+  message: text("message").notNull(),
+  /** 알림 읽음 여부 */
+  isRead: boolean("isRead").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type NotificationLog = typeof notificationLogs.$inferSelect;
+export type InsertNotificationLog = typeof notificationLogs.$inferInsert;

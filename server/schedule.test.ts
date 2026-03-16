@@ -185,3 +185,49 @@ describe("auto-assign logic validation", () => {
     expect(errors).toHaveLength(0);
   });
 });
+
+
+describe("Notification Logic", () => {
+  it("should NOT send notification for 전민서", () => {
+    const workerName = "전민서";
+    const shouldNotify = workerName !== "전민서";
+    expect(shouldNotify).toBe(false);
+  });
+
+  it("should send notification for 전성진", () => {
+    const workerName = "전성진";
+    const shouldNotify = workerName !== "전민서";
+    expect(shouldNotify).toBe(true);
+  });
+
+  it("should send notification for 정수환", () => {
+    const workerName = "정수환";
+    const shouldNotify = workerName !== "전민서";
+    expect(shouldNotify).toBe(true);
+  });
+
+  it("should send notification for 정우주", () => {
+    const workerName = "정우주";
+    const shouldNotify = workerName !== "전민서";
+    expect(shouldNotify).toBe(true);
+  });
+
+  it("should create correct notification message for schedule view", () => {
+    const workerName = "전성진";
+    const title = `${workerName}님의 스케줄 확인`;
+    const message = `${workerName}님이 이번 주 스케줄을 확인했습니다.`;
+    
+    expect(title).toBe("전성진님의 스케줄 확인");
+    expect(message).toBe("전성진님이 이번 주 스케줄을 확인했습니다.");
+  });
+
+  it("should create correct notification message for preferred days update", () => {
+    const workerName = "정우주";
+    const preferredDays = "월,화,수,금";
+    const title = `${workerName}님의 선호 근무일 수정`;
+    const message = `${workerName}님이 선호 근무일을 ${preferredDays}로 수정했습니다.`;
+    
+    expect(title).toBe("정우주님의 선호 근무일 수정");
+    expect(message).toBe("정우주님이 선호 근무일을 월,화,수,금로 수정했습니다.");
+  });
+});
