@@ -181,7 +181,7 @@ export default function Statistics() {
         endDate,
         String(workDays),
         String(totalHours),
-        "10030", // 시급 (직접 수정 가능)
+        "10320", // 시급 (직접 수정 가능)
         `=E${rows.length + 1}*F${rows.length + 1}`, // 총근무시간 × 시급 수식
       ]);
     });
@@ -237,7 +237,7 @@ export default function Statistics() {
         endDate,
         workDays,
         totalHours,
-        10030, // 2026년 최저시급 기본값 (직접 수정 가능)
+        10320, // 기본 시급 (직접 수정 가능)
         { f: `E${excelRow}*F${excelRow}` } as any, // =총근무시간 × 시급
       ]);
     });

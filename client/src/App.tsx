@@ -9,6 +9,7 @@ import Settings from "./pages/Settings";
 import Master from "./pages/Master";
 import FullSchedule from "./pages/FullSchedule";
 import Statistics from "./pages/Statistics";
+import PayCalculator from "./pages/PayCalculator";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
       <Route path={"/master"} component={Master} />
       <Route path={"/full-schedule"} component={FullSchedule} />
       <Route path={"/statistics"} component={Statistics} />
+      <Route path={"/pay-calculator"} component={PayCalculator} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

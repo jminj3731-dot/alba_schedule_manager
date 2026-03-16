@@ -232,6 +232,37 @@ describe("Notification Logic", () => {
   });
 });
 
+describe("급여 계산기 로직", () => {
+  const PRESET_WAGES = [10320, 11000, 12000];
+
+  it("시급 프리셋 값 확인", () => {
+    expect(PRESET_WAGES).toContain(10320);
+    expect(PRESET_WAGES).toContain(11000);
+    expect(PRESET_WAGES).toContain(12000);
+    expect(PRESET_WAGES[0]).toBe(10320); // 기본값
+  });
+
+  it("예상 급여 계산: 총근무시간 × 시급", () => {
+    const totalHours = 40.5;
+    const hourlyWage = 10320;
+    const totalPay = Math.round(totalHours * hourlyWage);
+    expect(totalPay).toBe(417960);
+  });
+
+  it("예상 급여 계산: 11,000원 시급", () => {
+    const totalHours = 36.25;
+    const hourlyWage = 11000;
+    const totalPay = Math.round(totalHours * hourlyWage);
+    expect(totalPay).toBe(398750);
+  });
+
+  it("직접 입력 시급 파싱: 콤마 제거 후 숫자 변환", () => {
+    const raw = "12,500";
+    const parsed = parseInt(raw.replace(/,/g, ""), 10);
+    expect(parsed).toBe(12500);
+  });
+});
+
 describe("급여 계산 기간 로직", () => {
   /** 급여 계산 기간: 전월 급여일 ~ 당월 급여일 전날
    * 예) 급여일 14일 → 전월 14일 ~ 이번달 13일
