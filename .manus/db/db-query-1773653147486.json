@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO `workers` (`name`, `skillLevel`, `fixedDaysOff`, `isActive`) VALUES\n('전민서', 'main', '', true),\n('전성진', 'main', '', true),\n('정수환', 'sub', '', true),\n('정우주', 'sub', '목,일', true);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2A8Aro7D2nxffKJ.root --database o2y7YjaHBsMCC4pdAvoHmq --execute INSERT INTO `workers` (`name`, `skillLevel`, `fixedDaysOff`, `isActive`) VALUES\n('전민서', 'main', '', true),\n('전성진', 'main', '', true),\n('정수환', 'sub', '', true),\n('정우주', 'sub', '목,일', true);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1701
+}

@@ -1,11 +1,10 @@
-import { eq } from "drizzle-orm";
+import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, workers, schedules, type InsertWorker, type InsertSchedule } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -89,4 +88,117 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ============ Workers CRUD ============
+
+export async function getAllWorkers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(workers).where(eq(workers.isActive, true));
+}
+
+export async function getWorkerById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(workers).where(eq(workers.id, id)).limit(1);
+  return result[0];
+}
+
+export async function createWorker(data: { name: string; skillLevel: "main" | "sub"; fixedDaysOff: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(workers).values({
+    name: data.name,
+    skillLevel: data.skillLevel,
+    fixedDaysOff: data.fixedDaysOff || "",
+  });
+  return { id: result[0].insertId };
+}
+
+export async function updateWorker(id: number, data: { name?: string; skillLevel?: "main" | "sub"; fixedDaysOff?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const updateSet: Record<string, unknown> = {};
+  if (data.name !== undefined) updateSet.name = data.name;
+  if (data.skillLevel !== undefined) updateSet.skillLevel = data.skillLevel;
+  if (data.fixedDaysOff !== undefined) updateSet.fixedDaysOff = data.fixedDaysOff;
+  if (Object.keys(updateSet).length === 0) return;
+  await db.update(workers).set(updateSet).where(eq(workers.id, id));
+}
+
+export async function deleteWorker(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Soft delete
+  await db.update(workers).set({ isActive: false }).where(eq(workers.id, id));
+}
+
+// ============ Schedules CRUD ============
+
+export async function getSchedulesByDateRange(startDate: string, endDate: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(schedules)
+    .where(and(gte(schedules.scheduleDate, startDate), lte(schedules.scheduleDate, endDate)));
+}
+
+export async function getScheduleByDate(date: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(schedules).where(eq(schedules.scheduleDate, date)).limit(1);
+  return result[0];
+}
+
+export async function upsertSchedule(data: {
+  scheduleDate: string;
+  dayOfWeek: string;
+  isOperating: boolean;
+  aTimeWorkerId: number | null;
+  bTimeWorkerId: number | null;
+  cTimeWorkerId: number | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const existing = await getScheduleByDate(data.scheduleDate);
+  if (existing) {
+    await db.update(schedules).set({
+      dayOfWeek: data.dayOfWeek,
+      isOperating: data.isOperating,
+      aTimeWorkerId: data.aTimeWorkerId,
+      bTimeWorkerId: data.bTimeWorkerId,
+      cTimeWorkerId: data.cTimeWorkerId,
+    }).where(eq(schedules.id, existing.id));
+    return { id: existing.id };
+  } else {
+    const result = await db.insert(schedules).values({
+      scheduleDate: data.scheduleDate,
+      dayOfWeek: data.dayOfWeek,
+      isOperating: data.isOperating,
+      aTimeWorkerId: data.aTimeWorkerId,
+      bTimeWorkerId: data.bTimeWorkerId,
+      cTimeWorkerId: data.cTimeWorkerId,
+    });
+    return { id: result[0].insertId };
+  }
+}
+
+export async function getWeeklyWorkerCounts(startDate: string, endDate: string) {
+  const db = await getDb();
+  if (!db) return {};
+
+  const allSchedules = await db.select().from(schedules)
+    .where(and(
+      gte(schedules.scheduleDate, startDate),
+      lte(schedules.scheduleDate, endDate),
+      eq(schedules.isOperating, true)
+    ));
+
+  const counts: Record<number, number> = {};
+  for (const s of allSchedules) {
+    const workerIds = [s.aTimeWorkerId, s.bTimeWorkerId, s.cTimeWorkerId].filter(Boolean) as number[];
+    for (const wId of workerIds) {
+      counts[wId] = (counts[wId] || 0) + 1;
+    }
+  }
+  return counts;
+}
