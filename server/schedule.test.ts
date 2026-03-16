@@ -233,10 +233,12 @@ describe("Notification Logic", () => {
 });
 
 describe("급여 계산 기간 로직", () => {
-  /** 급여 계산 기간: 전월 급여일 다음날 ~ 당월 급여일 */
+  /** 급여 계산 기간: 전월 급여일 ~ 당월 급여일 전날
+   * 예) 급여일 14일 → 전월 14일 ~ 이번달 13일
+   */
   function calcPayPeriod(year: number, month: number, payDay: number) {
-    const endDate = new Date(year, month - 1, payDay);
-    const startDate = new Date(year, month - 2, payDay + 1);
+    const startDate = new Date(year, month - 2, payDay); // 전월 급여일
+    const endDate = new Date(year, month - 1, payDay - 1); // 당월 급여일 전날
     const toStr = (d: Date) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -246,28 +248,28 @@ describe("급여 계산 기간 로직", () => {
     return { startDate: toStr(startDate), endDate: toStr(endDate) };
   }
 
-  it("급여일 14일 기준: 3월 급여 기간은 2/15 ~ 3/14", () => {
+  it("급여일 14일 기준: 3월 급여 기간은 2/14 ~ 3/13", () => {
     const { startDate, endDate } = calcPayPeriod(2026, 3, 14);
-    expect(startDate).toBe("2026-02-15");
-    expect(endDate).toBe("2026-03-14");
+    expect(startDate).toBe("2026-02-14");
+    expect(endDate).toBe("2026-03-13");
   });
 
-  it("급여일 25일 기준: 3월 급여 기간은 2/26 ~ 3/25", () => {
+  it("급여일 25일 기준: 3월 급여 기간은 2/25 ~ 3/24", () => {
     const { startDate, endDate } = calcPayPeriod(2026, 3, 25);
-    expect(startDate).toBe("2026-02-26");
-    expect(endDate).toBe("2026-03-25");
+    expect(startDate).toBe("2026-02-25");
+    expect(endDate).toBe("2026-03-24");
   });
 
-  it("급여일 1일 기준: 3월 급여 기간은 2/2 ~ 3/1", () => {
+  it("급여일 1일 기준: 3월 급여 기간은 2/1 ~ 2/28", () => {
     const { startDate, endDate } = calcPayPeriod(2026, 3, 1);
-    expect(startDate).toBe("2026-02-02");
-    expect(endDate).toBe("2026-03-01");
+    expect(startDate).toBe("2026-02-01");
+    expect(endDate).toBe("2026-02-28");
   });
 
   it("1월 급여 기간 계산 (전년도 12월 포함)", () => {
     const { startDate, endDate } = calcPayPeriod(2026, 1, 14);
-    expect(startDate).toBe("2025-12-15");
-    expect(endDate).toBe("2026-01-14");
+    expect(startDate).toBe("2025-12-14");
+    expect(endDate).toBe("2026-01-13");
   });
 
   it("분을 소수 시간으로 변환: 270분 → 4.5", () => {

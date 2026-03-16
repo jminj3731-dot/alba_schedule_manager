@@ -60,12 +60,14 @@ function toDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** 급여 계산 기간 계산: 전월 급여일 다음날 ~ 당월 급여일 */
+/** 급여 계산 기간 계산: 전월 급여일 ~ 당월 급여일 전날
+ * 예) 급여일 14일 → 전월 14일 ~ 이번달 13일
+ */
 function calcPayPeriod(year: number, month: number, payDay: number): { startDate: string; endDate: string; label: string } {
-  // 당월 급여일
-  const endDate = new Date(year, month - 1, payDay);
-  // 전월 급여일 다음날
-  const startDate = new Date(year, month - 2, payDay + 1);
+  // 전월 급여일 (시작)
+  const startDate = new Date(year, month - 2, payDay);
+  // 당월 급여일 전날 (종료)
+  const endDate = new Date(year, month - 1, payDay - 1);
 
   return {
     startDate: toDateStr(startDate),
@@ -167,29 +169,27 @@ export default function Statistics() {
     const rows: string[][] = [];
 
     // 급여 계산 섹션
-    rows.push(["=== 급여 계산 ===", "", "", "", "", "", "", ""]);
-    rows.push(["이름", "급여 기간", "근무일수", "총근무시간(h)", "시급(원)", "총급여(원)", "", ""]);
+    rows.push(["이름", "급여 기간 시작", "급여 기간 종료", "근무일수", "총근무시간(h)", "시급(원)", "총급여(원)"]);
 
-    stats.forEach((s) => {
+    const activeStats = stats.filter((s) => s.workDays > 0);
+    activeStats.forEach((s) => {
       const { startDate, endDate, totalMinutes, workDays } = getWorkerPeriodData(s.workerId, s.workerName);
       const totalHours = minutesToDecimalHours(totalMinutes);
       rows.push([
         s.workerName,
-        `${startDate} ~ ${endDate}`,
+        startDate,
+        endDate,
         String(workDays),
         String(totalHours),
-        "", // 시급 직접 입력
-        "", // 총급여 직접 계산
-        "",
-        "",
+        "10030", // 시급 (직접 수정 가능)
+        `=E${rows.length + 1}*F${rows.length + 1}`, // 총근무시간 × 시급 수식
       ]);
     });
 
-    rows.push(["", "", "", "", "", "", "", ""]);
+    rows.push(["", "", "", "", "", "", ""]);
 
     // 상세 내역 섹션
-    rows.push(["=== 근무 상세 내역 ===", "", "", "", "", "", "", ""]);
-    rows.push(["이름", "급여기간", "날짜", "요일", "타임", "출근", "퇴근", "근무시간(h)"]);
+    rows.push(["이름", "급여 기간", "날짜", "요일", "타임", "출근", "퇴근", "근무시간(h)"]);
 
     stats.forEach((s) => {
       const { startDate, endDate, breakdown } = getWorkerPeriodData(s.workerId, s.workerName);
@@ -222,26 +222,27 @@ export default function Statistics() {
     const wb = XLSX.utils.book_new();
 
     // ── 시트 1: 급여 계산 ──
-    const payRows: (string | number)[][] = [];
-    payRows.push(["이름", "급여 기간 시작", "급여 기간 종료", "근무일수", "총 근무시간(h)", "시급(원)", "총 급여(원)"]);
+    // 헤더 행 (1행)
+    const payHeader = ["이름", "급여 기간 시작", "급여 기간 종료", "근무일수", "총 근무시간(h)", "시급(원)", "총 급여(원)"];
+    const payDataRows: (string | number)[][] = [];
 
-    stats.forEach((s) => {
+    const activeStats = stats.filter((s) => s.workDays > 0);
+    activeStats.forEach((s, idx) => {
       const { startDate, endDate, totalMinutes, workDays } = getWorkerPeriodData(s.workerId, s.workerName);
       const totalHours = minutesToDecimalHours(totalMinutes);
-      // 총급여 수식: =E{row}*F{row}
-      const rowNum = payRows.length + 1; // 헤더가 1행이므로 데이터는 2행부터
-      payRows.push([
+      const excelRow = idx + 2; // 헤더가 1행, 데이터는 2행부터
+      payDataRows.push([
         s.workerName,
         startDate,
         endDate,
         workDays,
         totalHours,
-        0, // 시급 입력 셀 (기본값 0)
-        { f: `E${rowNum + 1}*F${rowNum + 1}` } as any, // 총급여 수식
+        10030, // 2026년 최저시급 기본값 (직접 수정 가능)
+        { f: `E${excelRow}*F${excelRow}` } as any, // =총근무시간 × 시급
       ]);
     });
 
-    const wsPayroll = XLSX.utils.aoa_to_sheet(payRows);
+    const wsPayroll = XLSX.utils.aoa_to_sheet([payHeader, ...payDataRows]);
 
     // 열 너비 설정
     wsPayroll["!cols"] = [
@@ -257,14 +258,15 @@ export default function Statistics() {
     XLSX.utils.book_append_sheet(wb, wsPayroll, "급여계산");
 
     // ── 시트 2: 상세 내역 ──
-    const detailRows: (string | number)[][] = [];
-    detailRows.push(["이름", "급여 기간", "날짜", "요일", "타임", "출근", "퇴근", "근무시간(h)"]);
+    // 헤더 행 (1행)
+    const detailHeader = ["이름", "급여 기간", "날짜", "요일", "타임", "출근", "퇴근", "근무시간(h)"];
+    const detailDataRows: (string | number)[][] = [];
 
     stats.forEach((s) => {
       const { startDate, endDate, breakdown } = getWorkerPeriodData(s.workerId, s.workerName);
       const periodLabel = `${startDate} ~ ${endDate}`;
       breakdown.forEach((d) => {
-        detailRows.push([
+        detailDataRows.push([
           s.workerName,
           periodLabel,
           d.date,
@@ -277,7 +279,7 @@ export default function Statistics() {
       });
     });
 
-    const wsDetail = XLSX.utils.aoa_to_sheet(detailRows);
+    const wsDetail = XLSX.utils.aoa_to_sheet([detailHeader, ...detailDataRows]);
     wsDetail["!cols"] = [
       { wch: 10 },
       { wch: 24 },
