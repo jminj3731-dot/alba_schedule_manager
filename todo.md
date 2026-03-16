@@ -76,3 +76,8 @@
 - [x] Master.tsx getWeekDates 함수 날짜 계산 버그 수정 (toISOString UTC 오프셋 문제 → toLocalDateStr 함수로 교체)
 - [x] FullSchedule.tsx 동일 버그 수정
 - [x] Home.tsx 동일 버그 수정
+
+## v7 Settings 이번 주 근무 현황 버그 수정
+- [x] 백엔드 weeklyWorkerCounts API 날짜 범위 계산 수정 (일~토 기준, 백엔드는 정상 동작 확인)
+- [x] Settings.tsx getWeekRange toISOString UTC 오프셋 문제 해결 (toLocalDateStr 적용)
+- [x] 이번 주 근무 현황 카드에 날짜 범위 표시 추가 (MM/DD (일) ~ MM/DD (토))

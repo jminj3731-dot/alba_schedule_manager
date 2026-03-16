@@ -27,15 +27,22 @@ import { toast } from "sonner";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function getWeekRange(): { startDate: string; endDate: string } {
   const now = new Date();
-  const dayOfWeek = now.getDay();
+  const dayOfWeek = now.getDay(); // 0=일, 1=월, ..., 6=토
   const start = new Date(now);
-  start.setDate(now.getDate() - dayOfWeek);
+  start.setDate(now.getDate() - dayOfWeek); // 이번 주 일요일
+  start.setHours(0, 0, 0, 0);
   const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
-  return { startDate: fmt(start), endDate: fmt(end) };
+  end.setDate(start.getDate() + 6); // 이번 주 토요일
+  return { startDate: toLocalDateStr(start), endDate: toLocalDateStr(end) };
 }
 
 function getWorkStatus(count: number) {
@@ -166,9 +173,14 @@ export default function Settings() {
         {/* Weekly Stats */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-primary" />
-              이번 주 근무 현황
+            <CardTitle className="text-sm font-medium flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                이번 주 근무 현황
+              </span>
+              <span className="text-[11px] font-normal text-muted-foreground">
+                {weekRange.startDate.slice(5).replace("-", "/")} (일) ~ {weekRange.endDate.slice(5).replace("-", "/")} (토)
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
