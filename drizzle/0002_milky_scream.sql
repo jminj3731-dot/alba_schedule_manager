@@ -1,0 +1,1 @@
+ALTER TABLE `workers` ADD `preferredDays` varchar(100) DEFAULT '';

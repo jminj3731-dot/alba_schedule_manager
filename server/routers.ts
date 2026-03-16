@@ -6,13 +6,17 @@ import { z } from "zod";
 import {
   getAllWorkers,
   getWorkerById,
+  getWorkerByName,
   createWorker,
   updateWorker,
   deleteWorker,
   getSchedulesByDateRange,
+  getSchedulesForWorker,
   upsertSchedule,
   getWeeklyWorkerCounts,
 } from "./db";
+
+const WEEKEND_DAYS = ["금", "토"];
 
 export const appRouter = router({
   system: systemRouter,
@@ -36,11 +40,18 @@ export const appRouter = router({
         return getWorkerById(input.id);
       }),
 
+    getByName: publicProcedure
+      .input(z.object({ name: z.string() }))
+      .query(async ({ input }) => {
+        return getWorkerByName(input.name);
+      }),
+
     create: publicProcedure
       .input(z.object({
         name: z.string().min(1),
         skillLevel: z.enum(["main", "sub"]),
         fixedDaysOff: z.string().default(""),
+        preferredDays: z.string().default(""),
       }))
       .mutation(async ({ input }) => {
         return createWorker(input);
@@ -52,6 +63,7 @@ export const appRouter = router({
         name: z.string().min(1).optional(),
         skillLevel: z.enum(["main", "sub"]).optional(),
         fixedDaysOff: z.string().optional(),
+        preferredDays: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
@@ -77,6 +89,16 @@ export const appRouter = router({
         return getSchedulesByDateRange(input.startDate, input.endDate);
       }),
 
+    getForWorker: publicProcedure
+      .input(z.object({
+        workerId: z.number(),
+        startDate: z.string(),
+        endDate: z.string(),
+      }))
+      .query(async ({ input }) => {
+        return getSchedulesForWorker(input.workerId, input.startDate, input.endDate);
+      }),
+
     upsert: publicProcedure
       .input(z.object({
         scheduleDate: z.string(),
@@ -97,6 +119,93 @@ export const appRouter = router({
       }))
       .query(async ({ input }) => {
         return getWeeklyWorkerCounts(input.startDate, input.endDate);
+      }),
+
+    /** 자동 배정: 선호 근무일 기반으로 주간 스케줄 자동 생성 */
+    autoAssign: publicProcedure
+      .input(z.object({
+        startDate: z.string(),
+        endDate: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const allWorkers = await getAllWorkers();
+        if (allWorkers.length === 0) return { success: false, message: "등록된 알바생이 없습니다." };
+
+        const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+        const start = new Date(input.startDate);
+        const end = new Date(input.endDate);
+        const results: { date: string; assigned: boolean }[] = [];
+
+        // Track how many days each worker is assigned this week
+        const weekCounts: Record<number, number> = {};
+        allWorkers.forEach(w => { weekCounts[w.id] = 0; });
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split("T")[0];
+          const dayName = DAY_NAMES[d.getDay()];
+          const isWeekend = WEEKEND_DAYS.includes(dayName);
+          const requiredCount = isWeekend ? 3 : 2;
+
+          // Get available workers for this day (not on fixed day off)
+          const available = allWorkers.filter(w => {
+            const daysOff = (w.fixedDaysOff || "").split(",").map(s => s.trim()).filter(Boolean);
+            return !daysOff.includes(dayName);
+          });
+
+          // Score workers: prefer those who listed this day as preferred, then balance counts
+          const scored = available.map(w => {
+            const preferred = (w.preferredDays || "").split(",").map(s => s.trim()).filter(Boolean);
+            const prefScore = preferred.includes(dayName) ? 100 : 0;
+            const balanceScore = 10 - (weekCounts[w.id] || 0); // fewer shifts = higher score
+            return { worker: w, score: prefScore + balanceScore };
+          }).sort((a, b) => b.score - a.score);
+
+          // Ensure at least one main worker
+          const mainWorkers = scored.filter(s => s.worker.skillLevel === "main");
+          const subWorkers = scored.filter(s => s.worker.skillLevel === "sub");
+
+          const assigned: typeof allWorkers = [];
+
+          // First pick: guarantee a main worker for A-time
+          if (mainWorkers.length > 0) {
+            assigned.push(mainWorkers[0].worker);
+          }
+
+          // Fill remaining slots from scored list (excluding already assigned)
+          const remaining = scored.filter(s => !assigned.find(a => a.id === s.worker.id));
+          for (const s of remaining) {
+            if (assigned.length >= requiredCount) break;
+            // Target 4 days per week
+            if ((weekCounts[s.worker.id] || 0) >= 5) continue;
+            assigned.push(s.worker);
+          }
+
+          // If still not enough, relax the 5-day limit
+          if (assigned.length < requiredCount) {
+            for (const s of remaining) {
+              if (assigned.length >= requiredCount) break;
+              if (!assigned.find(a => a.id === s.worker.id)) {
+                assigned.push(s.worker);
+              }
+            }
+          }
+
+          // Update week counts
+          assigned.forEach(w => { weekCounts[w.id] = (weekCounts[w.id] || 0) + 1; });
+
+          await upsertSchedule({
+            scheduleDate: dateStr,
+            dayOfWeek: dayName,
+            isOperating: true,
+            aTimeWorkerId: assigned[0]?.id ?? null,
+            bTimeWorkerId: assigned[1]?.id ?? null,
+            cTimeWorkerId: isWeekend ? (assigned[2]?.id ?? null) : null,
+          });
+
+          results.push({ date: dateStr, assigned: assigned.length >= requiredCount });
+        }
+
+        return { success: true, results };
       }),
   }),
 });

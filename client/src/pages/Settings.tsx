@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -23,14 +22,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Users, BarChart3 } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 function getWeekRange(): { startDate: string; endDate: string } {
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0=Sun
+  const dayOfWeek = now.getDay();
   const start = new Date(now);
   start.setDate(now.getDate() - dayOfWeek);
   const end = new Date(start);
@@ -51,6 +50,7 @@ export default function Settings() {
   const [formName, setFormName] = useState("");
   const [formSkillLevel, setFormSkillLevel] = useState<"main" | "sub">("sub");
   const [formDaysOff, setFormDaysOff] = useState<string[]>([]);
+  const [formPreferredDays, setFormPreferredDays] = useState<string[]>([]);
 
   const utils = trpc.useUtils();
   const { data: workers = [], isLoading } = trpc.workers.list.useQuery();
@@ -84,6 +84,7 @@ export default function Settings() {
     setFormName("");
     setFormSkillLevel("sub");
     setFormDaysOff([]);
+    setFormPreferredDays([]);
     setEditingWorker(null);
     setDialogOpen(false);
   }
@@ -93,6 +94,7 @@ export default function Settings() {
     setFormName(worker.name);
     setFormSkillLevel(worker.skillLevel);
     setFormDaysOff(worker.fixedDaysOff ? worker.fixedDaysOff.split(",").filter(Boolean) : []);
+    setFormPreferredDays(worker.preferredDays ? worker.preferredDays.split(",").filter(Boolean) : []);
     setDialogOpen(true);
   }
 
@@ -107,24 +109,38 @@ export default function Settings() {
       return;
     }
     const daysOffStr = formDaysOff.join(",");
+    const preferredStr = formPreferredDays.join(",");
     if (editingWorker) {
       updateMutation.mutate({
         id: editingWorker.id,
         name: formName.trim(),
         skillLevel: formSkillLevel,
         fixedDaysOff: daysOffStr,
+        preferredDays: preferredStr,
       });
     } else {
       createMutation.mutate({
         name: formName.trim(),
         skillLevel: formSkillLevel,
         fixedDaysOff: daysOffStr,
+        preferredDays: preferredStr,
       });
     }
   }
 
   function toggleDayOff(day: string) {
     setFormDaysOff((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+    // If day is added to days off, remove from preferred
+    if (!formDaysOff.includes(day)) {
+      setFormPreferredDays((prev) => prev.filter((d) => d !== day));
+    }
+  }
+
+  function togglePreferredDay(day: string) {
+    if (formDaysOff.includes(day)) return; // Can't prefer a day off
+    setFormPreferredDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     );
   }
@@ -161,10 +177,7 @@ export default function Settings() {
                 const count = (weekCounts as Record<string, number>)[String(w.id)] || 0;
                 const status = getWorkStatus(count);
                 return (
-                  <div
-                    key={w.id}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50"
-                  >
+                  <div key={w.id} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{w.name}</span>
                       <span className="text-xs text-muted-foreground">{count}일</span>
@@ -192,12 +205,7 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground text-center py-4">메인 알바생이 없습니다.</p>
             )}
             {mainWorkers.map((w) => (
-              <WorkerRow
-                key={w.id}
-                worker={w}
-                onEdit={() => openEditDialog(w)}
-                onDelete={() => deleteMutation.mutate({ id: w.id })}
-              />
+              <WorkerRow key={w.id} worker={w} onEdit={() => openEditDialog(w)} onDelete={() => deleteMutation.mutate({ id: w.id })} />
             ))}
           </CardContent>
         </Card>
@@ -215,12 +223,7 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground text-center py-4">서브 알바생이 없습니다.</p>
             )}
             {subWorkers.map((w) => (
-              <WorkerRow
-                key={w.id}
-                worker={w}
-                onEdit={() => openEditDialog(w)}
-                onDelete={() => deleteMutation.mutate({ id: w.id })}
-              />
+              <WorkerRow key={w.id} worker={w} onEdit={() => openEditDialog(w)} onDelete={() => deleteMutation.mutate({ id: w.id })} />
             ))}
           </CardContent>
         </Card>
@@ -261,7 +264,7 @@ export default function Settings() {
                       key={day}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm cursor-pointer transition-colors ${
                         formDaysOff.includes(day)
-                          ? "bg-primary/20 border-primary/50 text-primary"
+                          ? "bg-destructive/20 border-destructive/50 text-destructive"
                           : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
                       }`}
                     >
@@ -274,6 +277,38 @@ export default function Settings() {
                     </label>
                   ))}
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <CalendarCheck className="w-3.5 h-3.5 text-primary" />
+                  선호 근무 요일
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {DAYS.map((day) => {
+                    const isOff = formDaysOff.includes(day);
+                    return (
+                      <label
+                        key={day}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm transition-colors ${
+                          isOff
+                            ? "bg-muted/30 border-border/50 text-muted-foreground/40 cursor-not-allowed"
+                            : formPreferredDays.includes(day)
+                            ? "bg-primary/20 border-primary/50 text-primary cursor-pointer"
+                            : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30 cursor-pointer"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={formPreferredDays.includes(day)}
+                          onCheckedChange={() => togglePreferredDay(day)}
+                          disabled={isOff}
+                          className="hidden"
+                        />
+                        {day}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-muted-foreground">자동 배정 시 선호 요일이 우선 반영됩니다.</p>
               </div>
             </div>
             <DialogFooter>
@@ -301,6 +336,7 @@ function WorkerRow({
   onDelete: () => void;
 }) {
   const daysOff = worker.fixedDaysOff ? worker.fixedDaysOff.split(",").filter(Boolean) : [];
+  const preferred = worker.preferredDays ? worker.preferredDays.split(",").filter(Boolean) : [];
 
   return (
     <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
@@ -320,9 +356,19 @@ function WorkerRow({
         </div>
         {daysOff.length > 0 && (
           <div className="flex items-center gap-1 mt-1">
-            <span className="text-[10px] text-muted-foreground">고정 휴무:</span>
+            <span className="text-[10px] text-muted-foreground">휴무:</span>
             {daysOff.map((d: string) => (
               <span key={d} className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
+                {d}
+              </span>
+            ))}
+          </div>
+        )}
+        {preferred.length > 0 && (
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-[10px] text-muted-foreground">선호:</span>
+            {preferred.map((d: string) => (
+              <span key={d} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                 {d}
               </span>
             ))}

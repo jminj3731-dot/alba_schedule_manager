@@ -15,6 +15,13 @@
       "when": 1773653128024,
       "tag": "0001_happy_omega_flight",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1773654511422,
+      "tag": "0002_milky_scream",
+      "breakpoints": true
     }
   ]
 }

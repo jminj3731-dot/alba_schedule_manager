@@ -1,14 +1,79 @@
+import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Settings, CalendarDays, Eye } from "lucide-react";
+import { Settings, CalendarDays, Lock, Home, Wand2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+
+const ADMIN_PASSWORD = "대한한우";
 
 const tabs = [
   { path: "/settings", label: "Settings", icon: Settings },
   { path: "/master", label: "Master", icon: CalendarDays },
-  { path: "/worker", label: "Worker View", icon: Eye },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem("admin_auth") === "true";
+  });
+  const [password, setPassword] = useState("");
+
+  function handleAuth() {
+    if (password === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      sessionStorage.setItem("admin_auth", "true");
+      setPassword("");
+    } else {
+      toast.error("비밀번호가 올바르지 않습니다.");
+    }
+  }
+
+  // 비밀번호 미인증 시 잠금 화면
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10">
+              <Lock className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold">관리자 인증</h2>
+            <p className="text-sm text-muted-foreground">
+              이 페이지는 관리자만 접근할 수 있습니다.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAuth()}
+              placeholder="비밀번호 입력"
+              className="h-12 bg-secondary/50 text-base"
+            />
+            <Button onClick={handleAuth} className="w-full h-12">
+              확인
+            </Button>
+          </div>
+          <div className="text-center">
+            <Link href="/">
+              <span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                ← 메인으로 돌아가기
+              </span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -16,7 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="container flex items-center justify-between h-14">
           <Link href="/">
-            <h1 className="text-lg font-bold tracking-tight">
+            <h1 className="text-lg font-bold tracking-tight cursor-pointer">
               <span className="text-primary">ALBA</span>
               <span className="text-foreground ml-1">Schedule</span>
             </h1>
@@ -39,6 +104,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+            <Link href="/">
+              <span className="px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                메인
+              </span>
+            </Link>
           </nav>
         </div>
       </header>
@@ -67,6 +137,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          <Link href="/">
+            <span className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-muted-foreground transition-colors">
+              <Home className="w-5 h-5" />
+              <span className="text-[10px] font-medium">메인</span>
+            </span>
+          </Link>
         </div>
       </nav>
     </div>

@@ -7,7 +7,6 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Settings from "./pages/Settings";
 import Master from "./pages/Master";
-import WorkerView from "./pages/WorkerView";
 
 function Router() {
   return (
@@ -15,7 +14,6 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/settings"} component={Settings} />
       <Route path={"/master"} component={Master} />
-      <Route path={"/worker"} component={WorkerView} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

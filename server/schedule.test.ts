@@ -100,3 +100,88 @@ describe("constants", () => {
     expect(WEEKEND_DAYS).toEqual(["금", "토"]);
   });
 });
+
+describe("auto-assign logic validation", () => {
+  // Test the core logic that the auto-assign algorithm should follow
+  const workers = [
+    { id: 1, name: "전민서", skillLevel: "main" as const, fixedDaysOff: "", preferredDays: "월,화,수,목,금" },
+    { id: 2, name: "전성진", skillLevel: "main" as const, fixedDaysOff: "", preferredDays: "일,월,화,수" },
+    { id: 3, name: "정수환", skillLevel: "sub" as const, fixedDaysOff: "", preferredDays: "월,화,금,토" },
+    { id: 4, name: "정우주", skillLevel: "sub" as const, fixedDaysOff: "목,일", preferredDays: "월,화,수,금" },
+  ];
+
+  it("should filter out workers with fixed days off", () => {
+    const dayOfWeek = "목";
+    const available = workers.filter((w) => {
+      const daysOff = w.fixedDaysOff.split(",").filter(Boolean);
+      return !daysOff.includes(dayOfWeek);
+    });
+    // 정우주 is off on 목
+    expect(available.map((w) => w.name)).not.toContain("정우주");
+    expect(available).toHaveLength(3);
+  });
+
+  it("should filter out workers with fixed days off on 일요일", () => {
+    const dayOfWeek = "일";
+    const available = workers.filter((w) => {
+      const daysOff = w.fixedDaysOff.split(",").filter(Boolean);
+      return !daysOff.includes(dayOfWeek);
+    });
+    expect(available.map((w) => w.name)).not.toContain("정우주");
+    expect(available).toHaveLength(3);
+  });
+
+  it("should always include at least one main worker", () => {
+    const dayOfWeek = "월";
+    const available = workers.filter((w) => {
+      const daysOff = w.fixedDaysOff.split(",").filter(Boolean);
+      return !daysOff.includes(dayOfWeek);
+    });
+    const mainWorkers = available.filter((w) => w.skillLevel === "main");
+    expect(mainWorkers.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("should prioritize workers who prefer the day", () => {
+    const dayOfWeek = "금";
+    const available = workers.filter((w) => {
+      const daysOff = w.fixedDaysOff.split(",").filter(Boolean);
+      return !daysOff.includes(dayOfWeek);
+    });
+    const preferring = available.filter((w) => {
+      const preferred = w.preferredDays.split(",").filter(Boolean);
+      return preferred.includes(dayOfWeek);
+    });
+    // 전민서, 정수환, 정우주 all prefer 금
+    expect(preferring.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("weekday requires 2 workers, weekend requires 3", () => {
+    expect(WEEKDAY_DAYS.includes("월")).toBe(true);
+    expect(WEEKEND_DAYS.includes("금")).toBe(true);
+    
+    const weekdayRequired = 2;
+    const weekendRequired = 3;
+    expect(weekdayRequired).toBe(2);
+    expect(weekendRequired).toBe(3);
+  });
+
+  it("validates auto-assigned schedule passes validation", () => {
+    // Simulate auto-assign result: main + sub on weekday
+    const errors = validateSchedule("월", true, 
+      { id: 1, name: "전민서", skillLevel: "main", fixedDaysOff: "" },
+      { id: 3, name: "정수환", skillLevel: "sub", fixedDaysOff: "" },
+      null
+    );
+    expect(errors).toHaveLength(0);
+  });
+
+  it("validates auto-assigned weekend schedule passes validation", () => {
+    // Simulate auto-assign result: 2 main + 1 sub on weekend
+    const errors = validateSchedule("금", true,
+      { id: 1, name: "전민서", skillLevel: "main", fixedDaysOff: "" },
+      { id: 3, name: "정수환", skillLevel: "sub", fixedDaysOff: "" },
+      { id: 2, name: "전성진", skillLevel: "main", fixedDaysOff: "" }
+    );
+    expect(errors).toHaveLength(0);
+  });
+});

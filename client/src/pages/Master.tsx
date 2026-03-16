@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import AppLayout from "@/components/AppLayout";
 import { trpc } from "@/lib/trpc";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -12,7 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
@@ -64,12 +71,10 @@ function validateRow(
   const cW = getWorker(row.cTimeWorkerId);
   const assigned = [aW, bW, cW].filter(Boolean);
 
-  // 메인 숙련자 체크
   if (assigned.length > 0 && !assigned.some((w: any) => w.skillLevel === "main")) {
     errors.push({ type: "no_main", message: "메인 숙련자 미배정" });
   }
 
-  // 고정 휴무 위반 체크
   for (const w of assigned) {
     if (!w) continue;
     const daysOff = (w.fixedDaysOff || "").split(",").filter(Boolean);
@@ -78,7 +83,6 @@ function validateRow(
     }
   }
 
-  // 인원 수 체크
   const isWeekend = WEEKEND_DAYS.includes(row.dayOfWeek);
   const required = isWeekend ? 3 : 2;
   if (assigned.length > 0 && assigned.length < required) {
@@ -98,6 +102,7 @@ function isDayOffViolation(workerId: number | null, dayOfWeek: string, workers: 
 
 export default function Master() {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [autoAssignDialogOpen, setAutoAssignDialogOpen] = useState(false);
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
   const startDate = weekDates[0].dateStr;
@@ -114,7 +119,22 @@ export default function Master() {
     },
   });
 
-  // Build local state from existing schedules
+  const autoAssignMutation = trpc.schedules.autoAssign.useMutation({
+    onSuccess: (result) => {
+      utils.schedules.getByDateRange.invalidate({ startDate, endDate });
+      utils.schedules.weeklyWorkerCounts.invalidate();
+      setAutoAssignDialogOpen(false);
+      if (result.success) {
+        toast.success("자동 배정이 완료되었습니다.");
+      } else {
+        toast.error(result.message || "자동 배정에 실패했습니다.");
+      }
+    },
+    onError: () => {
+      toast.error("자동 배정 중 오류가 발생했습니다.");
+    },
+  });
+
   const scheduleMap = useMemo(() => {
     const map: Record<string, ScheduleRow> = {};
     for (const d of weekDates) {
@@ -154,6 +174,10 @@ export default function Master() {
     });
   }
 
+  function handleAutoAssign() {
+    autoAssignMutation.mutate({ startDate, endDate });
+  }
+
   const weekLabel = useMemo(() => {
     const s = weekDates[0].date;
     const e = weekDates[6].date;
@@ -164,9 +188,19 @@ export default function Master() {
     <AppLayout>
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Header */}
-        <div>
-          <h2 className="text-xl font-bold">Master</h2>
-          <p className="text-sm text-muted-foreground">스케줄 관리 (관리자용)</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold">Master</h2>
+            <p className="text-sm text-muted-foreground">스케줄 관리 (관리자용)</p>
+          </div>
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setAutoAssignDialogOpen(true)}
+          >
+            <Wand2 className="w-4 h-4" />
+            자동 배정
+          </Button>
         </div>
 
         {/* Week navigation */}
@@ -280,20 +314,51 @@ export default function Master() {
                   )}
 
                   {/* All good indicator */}
-                  {row.isOperating && errors.length === 0 && (
+                  {row.isOperating && errors.length === 0 &&
                     [row.aTimeWorkerId, row.bTimeWorkerId, row.cTimeWorkerId].some(Boolean) && (
                       <div className="flex items-center gap-1.5 text-[11px] text-green-500 pt-1 border-t border-border/50">
                         <CheckCircle2 className="w-3 h-3" />
                         <span>정상 배정</span>
                       </div>
-                    )
-                  )}
+                    )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
       </div>
+
+      {/* Auto-assign confirmation dialog */}
+      <Dialog open={autoAssignDialogOpen} onOpenChange={setAutoAssignDialogOpen}>
+        <DialogContent className="sm:max-w-sm bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="w-4 h-4 text-primary" />
+              자동 배정
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{weekLabel}</span> 주간 스케줄을 자동으로 배정합니다.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              알바생들의 선호 근무일과 고정 휴무를 반영하여 최적의 배정안을 생성합니다.
+            </p>
+            <p className="text-xs text-yellow-500">
+              기존 배정 내용이 덮어씌워집니다.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="bg-transparent" onClick={() => setAutoAssignDialogOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleAutoAssign} disabled={autoAssignMutation.isPending} className="gap-1.5">
+              <Wand2 className="w-4 h-4" />
+              {autoAssignMutation.isPending ? "배정 중..." : "자동 배정 실행"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
