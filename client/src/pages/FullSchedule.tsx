@@ -183,10 +183,13 @@ export default function FullSchedule() {
                 );
               }
 
+              const aEnd = (schedule as any).aTimeEndTime || "22:00";
+              const bEnd = (schedule as any).bTimeEndTime || "22:00";
+              const cEnd = (schedule as any).cTimeEndTime || "22:00";
               const slots = [
-                { label: "A", time: "17:30~22:00", workerId: schedule.aTimeWorkerId },
-                { label: "B", time: "18:00~22:00", workerId: schedule.bTimeWorkerId },
-                ...(isWeekend ? [{ label: "C", time: "18:00~22:00", workerId: schedule.cTimeWorkerId }] : []),
+                { label: "A", time: `17:30~${aEnd}`, workerId: schedule.aTimeWorkerId },
+                { label: "B", time: `18:00~${bEnd}`, workerId: schedule.bTimeWorkerId },
+                ...(isWeekend ? [{ label: "C", time: `18:00~${cEnd}`, workerId: schedule.cTimeWorkerId }] : []),
               ];
 
               return (

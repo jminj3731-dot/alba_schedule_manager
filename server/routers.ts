@@ -18,6 +18,7 @@ import {
   markNotificationAsRead,
   notifyWorkerOnScheduleView,
   notifyWorkerOnPreferredDaysUpdate,
+  updateScheduleEndTime,
 } from "./db";
 
 const WEEKEND_DAYS = ["금", "토"];
@@ -114,6 +115,16 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         return upsertSchedule(input);
+      }),
+
+    updateEndTime: publicProcedure
+      .input(z.object({
+        scheduleDate: z.string(),
+        timeSlot: z.enum(["a", "b", "c"]),
+        endTime: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        return updateScheduleEndTime(input);
       }),
 
     weeklyWorkerCounts: publicProcedure

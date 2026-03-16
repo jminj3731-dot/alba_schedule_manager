@@ -29,6 +29,13 @@
       "when": 1773669675402,
       "tag": "0003_short_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1773676548339,
+      "tag": "0004_fearless_mathemanic",
+      "breakpoints": true
     }
   ]
 }

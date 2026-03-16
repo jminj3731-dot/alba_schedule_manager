@@ -81,3 +81,11 @@
 - [x] 백엔드 weeklyWorkerCounts API 날짜 범위 계산 수정 (일~토 기준, 백엔드는 정상 동작 확인)
 - [x] Settings.tsx getWeekRange toISOString UTC 오프셋 문제 해결 (toLocalDateStr 적용)
 - [x] 이번 주 근무 현황 카드에 날짜 범위 표시 추가 (MM/DD (일) ~ MM/DD (토))
+
+## v8 퇴근 시간 편집 기능
+- [x] DB: schedules 테이블에 aTimeEndTime, bTimeEndTime, cTimeEndTime 컬럼 추가
+- [x] 백엔드: 퇴근 시간 업데이트 API 추가 (updateEndTime)
+- [x] Home.tsx: 개인 스케줄 카드에 퇴근 시간 편집 아이콘 추가
+- [x] Home.tsx: 시간 선택 팝오버 (19:00~23:30, 30분 단위)
+- [x] FullSchedule.tsx: 전체 스케줄 표에 퇴근 시간 표시
+- [x] 30개 테스트 모두 통과

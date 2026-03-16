@@ -184,6 +184,25 @@ export async function upsertSchedule(data: {
   }
 }
 
+export async function updateScheduleEndTime(data: {
+  scheduleDate: string;
+  timeSlot: "a" | "b" | "c";
+  endTime: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getScheduleByDate(data.scheduleDate);
+  if (!existing) throw new Error("Schedule not found for date: " + data.scheduleDate);
+
+  const updateField =
+    data.timeSlot === "a" ? { aTimeEndTime: data.endTime } :
+    data.timeSlot === "b" ? { bTimeEndTime: data.endTime } :
+    { cTimeEndTime: data.endTime };
+
+  await db.update(schedules).set(updateField).where(eq(schedules.id, existing.id));
+  return { success: true };
+}
+
 export async function getWorkerByName(name: string) {
   const db = await getDb();
   if (!db) return undefined;

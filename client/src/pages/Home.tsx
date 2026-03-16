@@ -25,7 +25,13 @@ import {
   LogOut,
   CalendarCheck,
   Users,
+  Pencil,
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -86,6 +92,22 @@ export default function Home() {
   const notifyScheduleViewMutation = trpc.notifications.notifyScheduleView.useMutation();
   const notifyPreferredDaysUpdateMutation = trpc.notifications.notifyPreferredDaysUpdate.useMutation();
 
+  const updateEndTimeMutation = trpc.schedules.updateEndTime.useMutation({
+    onSuccess: () => {
+      utils.schedules.getByDateRange.invalidate();
+      toast.success("퇴근 시간이 수정되었습니다.");
+    },
+    onError: () => {
+      toast.error("퇴근 시간 수정에 실패했습니다.");
+    },
+  });
+
+  const END_TIMES = [
+    "19:00", "19:30", "20:00", "20:30",
+    "21:00", "21:30", "22:00", "22:30",
+    "23:00", "23:30",
+  ];
+
   const updateMutation = trpc.workers.update.useMutation({
     onSuccess: () => {
       utils.workers.list.invalidate();
@@ -119,9 +141,18 @@ export default function Home() {
 
   function getMyTimeSlot(schedule: any) {
     if (!currentWorker) return null;
-    if (schedule.aTimeWorkerId === currentWorker.id) return { label: "A", time: "17:30~22:00" };
-    if (schedule.bTimeWorkerId === currentWorker.id) return { label: "B", time: "18:00~22:00" };
-    if (schedule.cTimeWorkerId === currentWorker.id) return { label: "C", time: "18:00~22:00" };
+    if (schedule.aTimeWorkerId === currentWorker.id) {
+      const endTime = schedule.aTimeEndTime || "22:00";
+      return { label: "A", slot: "a" as const, startTime: "17:30", endTime, time: `17:30~${endTime}` };
+    }
+    if (schedule.bTimeWorkerId === currentWorker.id) {
+      const endTime = schedule.bTimeEndTime || "22:00";
+      return { label: "B", slot: "b" as const, startTime: "18:00", endTime, time: `18:00~${endTime}` };
+    }
+    if (schedule.cTimeWorkerId === currentWorker.id) {
+      const endTime = schedule.cTimeEndTime || "22:00";
+      return { label: "C", slot: "c" as const, startTime: "18:00", endTime, time: `18:00~${endTime}` };
+    }
     return null;
   }
 
@@ -401,7 +432,7 @@ export default function Home() {
                         <DayBadge dayName={d.dayName} date={d.date} isWeekend={isWeekend} isToday={today} isMyDay={isMyDay} />
                         <div className="flex-1">
                           {isMyDay && mySlot ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Badge className="bg-primary text-primary-foreground text-xs px-2 py-0.5">
                                 {mySlot.label}타임
                               </Badge>
@@ -411,10 +442,41 @@ export default function Home() {
                             <span className="text-sm text-muted-foreground">근무 없음</span>
                           )}
                         </div>
-                        {isMyDay && (
-                          <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">
-                            출근
-                          </Badge>
+                        {isMyDay && mySlot && schedule && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                                title="퇴근 시간 수정"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-48 p-2 bg-card border-border" align="end">
+                              <p className="text-xs font-medium text-muted-foreground mb-2 px-1">퇴근 시간 선택</p>
+                              <div className="grid grid-cols-2 gap-1">
+                                {END_TIMES.map((t) => (
+                                  <button
+                                    key={t}
+                                    onClick={() => {
+                                      updateEndTimeMutation.mutate({
+                                        scheduleDate: d.dateStr,
+                                        timeSlot: mySlot.slot,
+                                        endTime: t,
+                                      });
+                                    }}
+                                    className={`text-xs py-1.5 px-2 rounded-md transition-colors ${
+                                      mySlot.endTime === t
+                                        ? "bg-primary text-primary-foreground font-medium"
+                                        : "hover:bg-primary/10 text-foreground"
+                                    }`}
+                                  >
+                                    {t}
+                                  </button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         )}
                       </div>
                     </CardContent>
