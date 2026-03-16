@@ -10,6 +10,7 @@ import Master from "./pages/Master";
 import FullSchedule from "./pages/FullSchedule";
 import Statistics from "./pages/Statistics";
 import PayCalculator from "./pages/PayCalculator";
+import ActivityLog from "./pages/ActivityLog";
 
 function Router() {
   return (
@@ -20,6 +21,7 @@ function Router() {
       <Route path={"/full-schedule"} component={FullSchedule} />
       <Route path={"/statistics"} component={Statistics} />
       <Route path={"/pay-calculator"} component={PayCalculator} />
+      <Route path={"/activity-log"} component={ActivityLog} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

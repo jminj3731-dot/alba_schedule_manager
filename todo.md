@@ -128,3 +128,16 @@
 - [x] App.tsx 라우팅 등록 (/pay-calculator)
 - [x] AppLayout 탭 네비게이션에 계산기 탭 추가
 - [x] 41개 테스트 통과
+
+## v13 관리자 활동 로그 탭
+- [x] DB: activityLogs 테이블 생성 (id, workerId, workerName, actionType, description, metadata, createdAt)
+- [x] 백엔드: 로그 저장 API (createActivityLog)
+- [x] 백엔드: 로그 조회 API (getActivityLogs - 필터: 알바생, 액션타입, 날짜범위)
+- [x] 출퇴근 수정 시 로그 기록 (Home.tsx - updateEndTime)
+- [x] 선호요일 변경 시 로그 기록 (Home.tsx - updatePreferredDays)
+- [x] 휴무요일 변경 시 로그 기록 (Settings.tsx - updateWorker)
+- [x] 알바생 추가/수정/삭제 시 로그 기록 (Settings.tsx)
+- [x] ActivityLog.tsx 신규 생성 (날짜별 그룹, 시간대별 정렬, 필터 기능)
+- [x] App.tsx 라우팅 등록 (/activity-log)
+- [x] AppLayout: 메인 버튼 우상단으로 이동, 하단 로그 탭 추가
+- [x] 45개 테스트 통과

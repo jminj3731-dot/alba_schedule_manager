@@ -43,6 +43,13 @@
       "when": 1773677393874,
       "tag": "0005_mean_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1773685420370,
+      "tag": "0006_green_lilandra",
+      "breakpoints": true
     }
   ]
 }

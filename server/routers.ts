@@ -22,6 +22,8 @@ import {
   updateScheduleTime,
   getMonthlyStats,
   getStatsByDateRange,
+  createActivityLog,
+  getActivityLogs,
 } from "./db";
 
 const WEEKEND_DAYS = ["금", "토"];
@@ -286,6 +288,55 @@ export const appRouter = router({
       .input(z.object({ startDate: z.string(), endDate: z.string() }))
       .query(async ({ input }) => {
         return getStatsByDateRange(input.startDate, input.endDate);
+      }),
+  }),
+
+  activityLogs: router({
+    create: publicProcedure
+      .input(z.object({
+        workerId: z.number().nullable().optional(),
+        workerName: z.string(),
+        actionType: z.enum([
+          "end_time_update",
+          "start_time_update",
+          "preferred_days_update",
+          "fixed_days_off_update",
+          "worker_created",
+          "worker_updated",
+          "worker_deleted",
+        ]),
+        description: z.string(),
+        metadata: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await createActivityLog({
+          workerId: input.workerId ?? null,
+          workerName: input.workerName,
+          actionType: input.actionType,
+          description: input.description,
+          metadata: input.metadata ?? null,
+        });
+        return { success: true };
+      }),
+
+    list: publicProcedure
+      .input(z.object({
+        workerId: z.number().optional(),
+        actionType: z.enum([
+          "end_time_update",
+          "start_time_update",
+          "preferred_days_update",
+          "fixed_days_off_update",
+          "worker_created",
+          "worker_updated",
+          "worker_deleted",
+        ]).optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+        limit: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        return getActivityLogs(input);
       }),
   }),
 });

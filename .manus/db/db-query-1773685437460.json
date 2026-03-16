@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `activityLogs` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`workerId` int,\n\t`workerName` varchar(100) NOT NULL,\n\t`actionType` enum('end_time_update','start_time_update','preferred_days_update','fixed_days_off_update','worker_created','worker_updated','worker_deleted') NOT NULL,\n\t`description` text NOT NULL,\n\t`metadata` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `activityLogs_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2A8Aro7D2nxffKJ.root --database o2y7YjaHBsMCC4pdAvoHmq --execute CREATE TABLE `activityLogs` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`workerId` int,\n\t`workerName` varchar(100) NOT NULL,\n\t`actionType` enum('end_time_update','start_time_update','preferred_days_update','fixed_days_off_update','worker_created','worker_updated','worker_deleted') NOT NULL,\n\t`description` text NOT NULL,\n\t`metadata` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `activityLogs_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1769
+}

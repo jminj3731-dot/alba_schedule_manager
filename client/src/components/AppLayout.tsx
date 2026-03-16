@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Settings, CalendarDays, Lock, Home, Wand2, BarChart3, Calculator } from "lucide-react";
+import { Settings, CalendarDays, Lock, Home, BarChart3, Calculator, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,6 +19,7 @@ const tabs = [
   { path: "/master", label: "Master", icon: CalendarDays },
   { path: "/statistics", label: "통계", icon: BarChart3 },
   { path: "/pay-calculator", label: "계산기", icon: Calculator },
+  { path: "/activity-log", label: "로그", icon: ClipboardList },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -106,28 +107,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
-            <Link href="/">
-              <span className="px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                메인
-              </span>
-            </Link>
           </nav>
+          {/* 메인 버튼 - 우상단 */}
+          <Link href="/">
+            <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 h-8">
+              <Home className="w-3.5 h-3.5" />
+              메인
+            </Button>
+          </Link>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-1 container py-4 pb-20 sm:pb-4">{children}</main>
+      <main className="flex-1 container py-4 pb-24 sm:pb-4">{children}</main>
 
       {/* Mobile bottom nav */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md safe-area-pb">
         <div className="flex items-center justify-around h-16">
+          {/* 메인 버튼 - 모바일에서는 첫 번째 위치 */}
+          <Link href="/">
+            <span
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
+                location === "/" ? "text-primary" : "text-muted-foreground"
+              }`}
+            >
+              <Home className="w-5 h-5" />
+              <span className="text-[10px] font-medium">메인</span>
+            </span>
+          </Link>
           {tabs.map((tab) => {
             const isActive = location === tab.path;
             const Icon = tab.icon;
             return (
               <Link key={tab.path} href={tab.path}>
                 <span
-                  className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
+                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
                     isActive
                       ? "text-primary"
                       : "text-muted-foreground"
@@ -139,12 +153,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
-          <Link href="/">
-            <span className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-muted-foreground transition-colors">
-              <Home className="w-5 h-5" />
-              <span className="text-[10px] font-medium">메인</span>
-            </span>
-          </Link>
         </div>
       </nav>
     </div>

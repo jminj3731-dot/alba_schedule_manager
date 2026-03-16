@@ -63,27 +63,66 @@ export default function Settings() {
   const { data: workers = [], isLoading } = trpc.workers.list.useQuery();
   const weekRange = useMemo(() => getWeekRange(), []);
   const { data: weekCounts = {} } = trpc.schedules.weeklyWorkerCounts.useQuery(weekRange);
+  const createActivityLogMutation = trpc.activityLogs.create.useMutation();
 
   const createMutation = trpc.workers.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       utils.workers.list.invalidate();
       toast.success("알바생이 추가되었습니다.");
+      createActivityLogMutation.mutate({
+        workerId: null,
+        workerName: "관리자",
+        actionType: "worker_created",
+        description: `알바생 ${variables.name}님이 추가되었습니다. (스킬: ${variables.skillLevel === "main" ? "메인" : "서브"}, 휴무요일: ${variables.fixedDaysOff || "없음"})`,
+        metadata: JSON.stringify(variables),
+      });
       resetForm();
     },
   });
 
   const updateMutation = trpc.workers.update.useMutation({
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       utils.workers.list.invalidate();
       toast.success("알바생 정보가 수정되었습니다.");
+      const worker = workers.find((w) => w.id === variables.id);
+      const workerName = worker?.name ?? "알 수 없음";
+      // 휴무요일 변경이 있는 경우
+      if (variables.fixedDaysOff !== undefined) {
+        const oldDaysOff = worker?.fixedDaysOff || "";
+        const newDaysOff = variables.fixedDaysOff || "";
+        if (oldDaysOff !== newDaysOff) {
+          createActivityLogMutation.mutate({
+            workerId: variables.id,
+            workerName,
+            actionType: "fixed_days_off_update",
+            description: `${workerName}님의 휴무요일이 변경되었습니다: ${newDaysOff || "없음"}`,
+            metadata: JSON.stringify({ before: oldDaysOff, after: newDaysOff }),
+          });
+        }
+      }
+      createActivityLogMutation.mutate({
+        workerId: variables.id,
+        workerName,
+        actionType: "worker_updated",
+        description: `${workerName}님의 정보가 수정되었습니다.`,
+        metadata: JSON.stringify(variables),
+      });
       resetForm();
     },
   });
 
   const deleteMutation = trpc.workers.delete.useMutation({
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      const worker = workers.find((w) => w.id === variables.id);
       utils.workers.list.invalidate();
       toast.success("알바생이 삭제되었습니다.");
+      createActivityLogMutation.mutate({
+        workerId: null,
+        workerName: "관리자",
+        actionType: "worker_deleted",
+        description: `알바생 ${worker?.name ?? variables.id}님이 삭제되었습니다.`,
+        metadata: JSON.stringify({ workerId: variables.id, workerName: worker?.name }),
+      });
     },
   });
 

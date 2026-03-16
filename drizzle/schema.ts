@@ -96,3 +96,33 @@ export const notificationLogs = mysqlTable("notificationLogs", {
 
 export type NotificationLog = typeof notificationLogs.$inferSelect;
 export type InsertNotificationLog = typeof notificationLogs.$inferInsert;
+
+/**
+ * ActivityLogs table - 관리자 활동 로그
+ * 알바생의 모든 활동 내역 기록 (\ucd9c퇴근 수정, 선호요일, 휴무요일, 알바생 CRUD 등)
+ */
+export const activityLogs = mysqlTable("activityLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 활동을 한 알바생 ID (nullable - 관리자 작업은 null) */
+  workerId: int("workerId"),
+  /** 활동을 한 알바생 이름 */
+  workerName: varchar("workerName", { length: 100 }).notNull(),
+  /** 액션 유형 */
+  actionType: mysqlEnum("actionType", [
+    "end_time_update",      // 퇴근 시간 수정
+    "start_time_update",   // 출근 시간 수정
+    "preferred_days_update", // 선호 근무일 변경
+    "fixed_days_off_update", // 휴무요일 변경
+    "worker_created",      // 알바생 추가
+    "worker_updated",      // 알바생 정보 수정
+    "worker_deleted",      // 알바생 삭제
+  ]).notNull(),
+  /** 활동 설명 (사람이 읽을 수 있는 텍스트) */
+  description: text("description").notNull(),
+  /** 추가 메타데이터 (JSON 문자열) */
+  metadata: text("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertActivityLog = typeof activityLogs.$inferInsert;

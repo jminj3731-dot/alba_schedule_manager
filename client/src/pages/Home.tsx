@@ -91,11 +91,22 @@ export default function Home() {
 
   const notifyScheduleViewMutation = trpc.notifications.notifyScheduleView.useMutation();
   const notifyPreferredDaysUpdateMutation = trpc.notifications.notifyPreferredDaysUpdate.useMutation();
+  const createActivityLogMutation = trpc.activityLogs.create.useMutation();
 
   const updateEndTimeMutation = trpc.schedules.updateEndTime.useMutation({
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       utils.schedules.getByDateRange.invalidate();
       toast.success("퇴근 시간이 수정되었습니다.");
+      if (loggedInName) {
+        const worker = workers.find((w) => w.name === loggedInName);
+        createActivityLogMutation.mutate({
+          workerId: worker?.id ?? null,
+          workerName: loggedInName,
+          actionType: "end_time_update",
+          description: `${loggedInName}님이 ${variables.scheduleDate} ${variables.timeSlot.toUpperCase()}타임 퇴근 시간을 ${variables.endTime}으로 수정했습니다.`,
+          metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, endTime: variables.endTime }),
+        });
+      }
     },
     onError: () => {
       toast.error("퇴근 시간 수정에 실패했습니다.");
@@ -117,6 +128,14 @@ export default function Home() {
           workerId: currentWorker.id,
           workerName: currentWorker.name,
           preferredDays: prefDays.join(","),
+        });
+        const daysStr = prefDays.length > 0 ? prefDays.join(", ") : "없음";
+        createActivityLogMutation.mutate({
+          workerId: currentWorker.id,
+          workerName: currentWorker.name,
+          actionType: "preferred_days_update",
+          description: `${currentWorker.name}님이 선호 근무일을 변경했습니다: ${daysStr}`,
+          metadata: JSON.stringify({ preferredDays: prefDays }),
         });
       }
       setPrefDialogOpen(false);

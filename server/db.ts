@@ -1,6 +1,6 @@
 import { eq, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, workers, schedules, notificationLogs, type InsertWorker, type InsertSchedule, type InsertNotificationLog } from "../drizzle/schema";
+import { InsertUser, users, workers, schedules, notificationLogs, activityLogs, type InsertWorker, type InsertSchedule, type InsertNotificationLog, type InsertActivityLog, type ActivityLog } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -435,4 +435,64 @@ export async function getStatsByDateRange(startDate: string, endDate: string): P
   ]);
 
   return buildStats(allWorkers, rangeSchedules);
+}
+
+// ─── Activity Logs ─────────────────────────────────────────────────────────
+
+export async function createActivityLog(data: InsertActivityLog): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(activityLogs).values(data);
+}
+
+export interface ActivityLogFilter {
+  workerId?: number;
+  actionType?: ActivityLog["actionType"];
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string;   // YYYY-MM-DD
+  limit?: number;
+}
+
+export async function getActivityLogs(filter: ActivityLogFilter = {}): Promise<ActivityLog[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const { limit = 200 } = filter;
+
+  // 날짜 범위 필터를 위한 타임스탬프 변환
+  const conditions = [];
+  if (filter.workerId !== undefined) {
+    conditions.push(eq(activityLogs.workerId, filter.workerId));
+  }
+  if (filter.actionType) {
+    conditions.push(eq(activityLogs.actionType, filter.actionType));
+  }
+  if (filter.startDate) {
+    const start = new Date(filter.startDate + "T00:00:00");
+    conditions.push(gte(activityLogs.createdAt, start));
+  }
+  if (filter.endDate) {
+    const end = new Date(filter.endDate + "T23:59:59");
+    conditions.push(lte(activityLogs.createdAt, end));
+  }
+
+  const query = db
+    .select()
+    .from(activityLogs)
+    .orderBy(activityLogs.createdAt)
+    .limit(limit);
+
+  if (conditions.length > 0) {
+    const rows = await db
+      .select()
+      .from(activityLogs)
+      .where(and(...conditions))
+      .orderBy(activityLogs.createdAt)
+      .limit(limit);
+    // 최신순 정렬
+    return rows.reverse();
+  }
+
+  const rows = await query;
+  return rows.reverse();
 }

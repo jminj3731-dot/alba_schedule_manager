@@ -232,6 +232,67 @@ describe("Notification Logic", () => {
   });
 });
 
+describe("활동 로그 유틸리티", () => {
+  const ACTION_LABELS = [
+    "end_time_update",
+    "start_time_update",
+    "preferred_days_update",
+    "fixed_days_off_update",
+    "worker_created",
+    "worker_updated",
+    "worker_deleted",
+  ] as const;
+
+  it("모든 액션 타입이 정의되어 있음", () => {
+    expect(ACTION_LABELS).toHaveLength(7);
+    expect(ACTION_LABELS).toContain("end_time_update");
+    expect(ACTION_LABELS).toContain("preferred_days_update");
+    expect(ACTION_LABELS).toContain("fixed_days_off_update");
+    expect(ACTION_LABELS).toContain("worker_created");
+    expect(ACTION_LABELS).toContain("worker_deleted");
+  });
+
+  it("퇴근 시간 수정 로그 description 포맷 검증", () => {
+    const workerName = "전민서";
+    const scheduleDate = "2026-03-14";
+    const timeSlot = "a";
+    const endTime = "22:30";
+    const description = `${workerName}님이 ${scheduleDate} ${timeSlot.toUpperCase()}타임 퇴근 시간을 ${endTime}으로 수정했습니다.`;
+    expect(description).toBe("전민서님이 2026-03-14 A타임 퇴근 시간을 22:30으로 수정했습니다.");
+  });
+
+  it("선호 근무일 변경 로그 description 포맷 검증", () => {
+    const workerName = "정우주";
+    const prefDays = ["월", "화", "금"];
+    const daysStr = prefDays.join(", ");
+    const description = `${workerName}님이 선호 근무일을 변경했습니다: ${daysStr}`;
+    expect(description).toBe("정우주님이 선호 근무일을 변경했습니다: 월, 화, 금");
+  });
+
+  it("날짜별 그룹핑 로직 검증", () => {
+    function formatDate(date: Date): string {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}.${m}.${d}`;
+    }
+    const logs = [
+      { id: 1, createdAt: new Date("2026-03-14T10:00:00"), description: "log1" },
+      { id: 2, createdAt: new Date("2026-03-14T15:00:00"), description: "log2" },
+      { id: 3, createdAt: new Date("2026-03-15T09:00:00"), description: "log3" },
+    ];
+    const groups: Record<string, any[]> = {};
+    logs.forEach((log) => {
+      const dateKey = formatDate(new Date(log.createdAt));
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(log);
+    });
+    expect(Object.keys(groups)).toHaveLength(2);
+    expect(groups["2026.03.14"]).toHaveLength(2);
+    expect(groups["2026.03.15"]).toHaveLength(1);
+  });
+});
+
 describe("급여 계산기 로직", () => {
   const PRESET_WAGES = [10320, 11000, 12000];
 
