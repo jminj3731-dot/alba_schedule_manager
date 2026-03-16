@@ -20,6 +20,7 @@ import {
   notifyWorkerOnPreferredDaysUpdate,
   updateScheduleEndTime,
   updateScheduleTime,
+  getMonthlyStats,
 } from "./db";
 
 const WEEKEND_DAYS = ["금", "토"];
@@ -272,6 +273,12 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
+  statistics: router({
+    monthly: publicProcedure
+      .input(z.object({ year: z.number(), month: z.number() }))
+      .query(async ({ input }) => {
+        return getMonthlyStats(input.year, input.month);
+      }),
+  }),
 });
-
 export type AppRouter = typeof appRouter;

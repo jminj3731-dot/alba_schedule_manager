@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Settings, CalendarDays, Lock, Home, Wand2 } from "lucide-react";
+import { Settings, CalendarDays, Lock, Home, Wand2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +17,7 @@ const ADMIN_PASSWORD = "대한한우";
 const tabs = [
   { path: "/settings", label: "Settings", icon: Settings },
   { path: "/master", label: "Master", icon: CalendarDays },
+  { path: "/statistics", label: "통계", icon: BarChart3 },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import Settings from "./pages/Settings";
 import Master from "./pages/Master";
 import FullSchedule from "./pages/FullSchedule";
+import Statistics from "./pages/Statistics";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path={"/settings"} component={Settings} />
       <Route path={"/master"} component={Master} />
       <Route path={"/full-schedule"} component={FullSchedule} />
+      <Route path={"/statistics"} component={Statistics} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

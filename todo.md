@@ -97,3 +97,14 @@
 - [x] Home.tsx: 출근 시간 DB에서 읽도록 반영
 - [x] FullSchedule.tsx: 출근 시간 DB에서 읽도록 반영
 - [x] 30개 테스트 모두 통과
+
+## v10 월간 근무 통계 페이지
+- [x] 백엔드: 월간 근무 일수/시간 집계 API (getMonthlyStats)
+- [x] Statistics.tsx: 알바생별 월간 근무 일수 바 차트
+- [x] Statistics.tsx: 알바생별 월간 근무 시간 바 차트
+- [x] Statistics.tsx: 타임별(A/B/C) 근무 분포 바 차트
+- [x] Statistics.tsx: 알바생 카드 클릭 시 상세 일별 내역 표시
+- [x] Statistics.tsx: 월 선택 네비게이션
+- [x] AppLayout: 통계 탭 추가
+- [x] App.tsx: /statistics 라우팅 추가
+- [x] 30개 테스트 모두 통과

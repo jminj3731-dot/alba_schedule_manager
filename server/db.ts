@@ -315,3 +315,100 @@ export async function notifyWorkerOnPreferredDaysUpdate(workerId: number, worker
     message: `${workerName}님이 선호 근무일을 ${preferredDays}로 수정했습니다.`,
   });
 }
+
+// ============ Monthly Statistics ============
+
+/**
+ * 근무 시간 문자열("17:30")을 분(minutes)으로 변환
+ */
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/**
+ * 두 시간 문자열 사이의 근무 시간(분) 계산
+ */
+function calcWorkMinutes(start: string, end: string): number {
+  const diff = timeToMinutes(end) - timeToMinutes(start);
+  return diff > 0 ? diff : 0;
+}
+
+export interface MonthlyWorkerStat {
+  workerId: number;
+  workerName: string;
+  skillLevel: string;
+  workDays: number;
+  totalMinutes: number;
+  aTimeDays: number;
+  bTimeDays: number;
+  cTimeDays: number;
+  dailyBreakdown: { date: string; dayOfWeek: string; timeSlot: string; startTime: string; endTime: string; minutes: number }[];
+}
+
+export async function getMonthlyStats(year: number, month: number): Promise<MonthlyWorkerStat[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  // 해당 월의 시작/끝 날짜 계산
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const [allWorkers, monthSchedules] = await Promise.all([
+    db.select().from(workers).orderBy(workers.id),
+    db.select().from(schedules)
+      .where(
+        and(
+          gte(schedules.scheduleDate, startDate),
+          lte(schedules.scheduleDate, endDate),
+          eq(schedules.isOperating, true)
+        )
+      )
+      .orderBy(schedules.scheduleDate),
+  ]);
+
+  const stats: MonthlyWorkerStat[] = allWorkers.map((w) => ({
+    workerId: w.id,
+    workerName: w.name || "",
+    skillLevel: w.skillLevel || "sub",
+    workDays: 0,
+    totalMinutes: 0,
+    aTimeDays: 0,
+    bTimeDays: 0,
+    cTimeDays: 0,
+    dailyBreakdown: [],
+  }));
+
+  for (const s of monthSchedules) {
+    const slots: { slot: "a" | "b" | "c"; workerId: number | null; start: string; end: string }[] = [
+      { slot: "a", workerId: s.aTimeWorkerId, start: (s as any).aTimeStartTime || "17:30", end: (s as any).aTimeEndTime || "22:00" },
+      { slot: "b", workerId: s.bTimeWorkerId, start: (s as any).bTimeStartTime || "18:00", end: (s as any).bTimeEndTime || "22:00" },
+      { slot: "c", workerId: s.cTimeWorkerId, start: (s as any).cTimeStartTime || "18:00", end: (s as any).cTimeEndTime || "22:00" },
+    ];
+
+    for (const { slot, workerId, start, end } of slots) {
+      if (!workerId) continue;
+      const stat = stats.find((st) => st.workerId === workerId);
+      if (!stat) continue;
+
+      const minutes = calcWorkMinutes(start, end);
+      stat.workDays += 1;
+      stat.totalMinutes += minutes;
+      if (slot === "a") stat.aTimeDays += 1;
+      else if (slot === "b") stat.bTimeDays += 1;
+      else stat.cTimeDays += 1;
+
+      stat.dailyBreakdown.push({
+        date: s.scheduleDate,
+        dayOfWeek: s.dayOfWeek,
+        timeSlot: slot.toUpperCase(),
+        startTime: start,
+        endTime: end,
+        minutes,
+      });
+    }
+  }
+
+  return stats;
+}
