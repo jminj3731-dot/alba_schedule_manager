@@ -1,5 +1,6 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { notifyOwner } from "./_core/notification";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
@@ -152,12 +153,21 @@ export const appRouter = router({
         actualStartTime: z.string(), // 실제 입력 시간
       }))
       .mutation(async ({ input }) => {
-        return updateScheduleTime({
+        const result = await updateScheduleTime({
           scheduleDate: input.scheduleDate,
           timeSlot: input.timeSlot,
           startTime: input.startTime,
           actualStartTime: input.actualStartTime,
         });
+        // 출근 알림 전송 (workerName은 result에서 가져옴)
+        if (result?.workerName) {
+          const timeSlotLabel = input.timeSlot.toUpperCase() + "타임";
+          await notifyOwner({
+            title: `${result.workerName}님이 출근했습니다`,
+            content: `📍 ${input.scheduleDate} ${timeSlotLabel}\n⏰ 실제 출근: ${input.actualStartTime} → 기록: ${input.startTime}`,
+          }).catch(() => {}); // 알림 실패해도 출근 처리는 성공
+        }
+        return result;
       }),
 
     checkOut: publicProcedure

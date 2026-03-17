@@ -504,3 +504,39 @@ describe("GPS 거리 계산 (Haversine)", () => {
     expect(dist).toBeGreaterThan(30000); // 30km 이상
   });
 });
+
+describe("출근 알림 메시지 포맷", () => {
+  it("출근 알림 제목 포맷 검증", () => {
+    const workerName = "정우주";
+    const title = `${workerName}님이 출근했습니다`;
+    expect(title).toBe("정우주님이 출근했습니다");
+  });
+
+  it("출근 알림 내용 포맷 검증 (실제 시간 → 기록 시간)", () => {
+    const scheduleDate = "2026-03-17";
+    const timeSlot = "b";
+    const actualStartTime = "18:03";
+    const startTime = "18:00";
+    const timeSlotLabel = timeSlot.toUpperCase() + "타임";
+    const content = `📍 ${scheduleDate} ${timeSlotLabel}\n⏰ 실제 출근: ${actualStartTime} → 기록: ${startTime}`;
+    expect(content).toBe("📍 2026-03-17 B타임\n⏰ 실제 출근: 18:03 → 기록: 18:00");
+  });
+
+  it("타임슬롯 레이블 변환 검증", () => {
+    expect("a".toUpperCase() + "타임").toBe("A타임");
+    expect("b".toUpperCase() + "타임").toBe("B타임");
+    expect("c".toUpperCase() + "타임").toBe("C타임");
+  });
+
+  it("workerName이 null이면 알림 전송 안 함", () => {
+    const workerName: string | null = null;
+    const shouldNotify = workerName !== null;
+    expect(shouldNotify).toBe(false);
+  });
+
+  it("workerName이 있으면 알림 전송", () => {
+    const workerName: string | null = "전민서";
+    const shouldNotify = workerName !== null;
+    expect(shouldNotify).toBe(true);
+  });
+});

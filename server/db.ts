@@ -233,9 +233,23 @@ export async function updateScheduleTime(data: {
     else updateField.cTimeActualStartTime = data.actualStartTime;
   }
 
-  if (Object.keys(updateField).length === 0) return { success: true };
+  if (Object.keys(updateField).length === 0) return { success: true, workerName: null };
   await db.update(schedules).set(updateField).where(eq(schedules.id, existing.id));
-  return { success: true };
+
+  // 알림용 workerName 조회
+  let workerName: string | null = null;
+  try {
+    const workerId =
+      data.timeSlot === "a" ? existing.aTimeWorkerId
+      : data.timeSlot === "b" ? existing.bTimeWorkerId
+      : existing.cTimeWorkerId;
+    if (workerId) {
+      const w = await getWorkerById(workerId);
+      workerName = w?.name ?? null;
+    }
+  } catch {}
+
+  return { success: true, workerName };
 }
 
 export async function getWorkerByName(name: string) {
