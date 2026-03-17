@@ -209,6 +209,7 @@ export async function updateScheduleTime(data: {
   timeSlot: "a" | "b" | "c";
   startTime?: string;
   endTime?: string;
+  actualStartTime?: string;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -225,6 +226,11 @@ export async function updateScheduleTime(data: {
     if (data.timeSlot === "a") updateField.aTimeEndTime = data.endTime;
     else if (data.timeSlot === "b") updateField.bTimeEndTime = data.endTime;
     else updateField.cTimeEndTime = data.endTime;
+  }
+  if (data.actualStartTime !== undefined) {
+    if (data.timeSlot === "a") updateField.aTimeActualStartTime = data.actualStartTime;
+    else if (data.timeSlot === "b") updateField.bTimeActualStartTime = data.actualStartTime;
+    else updateField.cTimeActualStartTime = data.actualStartTime;
   }
 
   if (Object.keys(updateField).length === 0) return { success: true };

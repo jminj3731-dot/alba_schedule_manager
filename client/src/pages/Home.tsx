@@ -23,9 +23,11 @@ import {
   Search,
   Lock,
   LogOut,
+  LogIn,
   CalendarCheck,
   Users,
   Pencil,
+  CheckCircle,
 } from "lucide-react";
 import {
   Popover,
@@ -134,6 +136,46 @@ export default function Home() {
     },
     onError: () => {
       toast.error("퇴근 시간 수정에 실패했습니다.");
+    },
+  });
+
+  const checkInMutation = trpc.schedules.checkIn.useMutation({
+    onSuccess: (_data, variables) => {
+      utils.schedules.getByDateRange.invalidate();
+      toast.success(`출근 완료! ${variables.startTime} 출근 처리되었습니다.`);
+      if (loggedInName) {
+        const worker = workers.find((w) => w.name === loggedInName);
+        createActivityLogMutation.mutate({
+          workerId: worker?.id ?? null,
+          workerName: loggedInName,
+          actionType: "start_time_update",
+          description: `${loggedInName}님이 ${variables.scheduleDate} 출근 버튼을 눠렀습니다. 실제 시간 ${variables.actualStartTime} → ${variables.startTime}으로 기록`,
+          metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, actualStartTime: variables.actualStartTime, displayStartTime: variables.startTime }),
+        });
+      }
+    },
+    onError: () => {
+      toast.error("출근 처리에 실패했습니다.");
+    },
+  });
+
+  const checkOutMutation = trpc.schedules.checkOut.useMutation({
+    onSuccess: (_data, variables) => {
+      utils.schedules.getByDateRange.invalidate();
+      toast.success(`퇴근 완료! ${variables.endTime} 퇴근 처리되었습니다.`);
+      if (loggedInName) {
+        const worker = workers.find((w) => w.name === loggedInName);
+        createActivityLogMutation.mutate({
+          workerId: worker?.id ?? null,
+          workerName: loggedInName,
+          actionType: "end_time_update",
+          description: `${loggedInName}님이 ${variables.scheduleDate} 퇴근 버튼을 눠렀습니다. 실제 시간 ${variables.actualEndTime} → ${variables.endTime}으로 기록`,
+          metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, actualEndTime: variables.actualEndTime, displayEndTime: variables.endTime }),
+        });
+      }
+    },
+    onError: () => {
+      toast.error("퇴근 처리에 실패했습니다.");
     },
   });
 
@@ -462,7 +504,20 @@ export default function Home() {
                   );
                 }
 
-                return (
+                {
+                  // 출퇴근 버튼 표시 조건: 오늘 날짜이고 내 근무가 있을 때
+                  const checkedInTime = mySlot && schedule ? (
+                    mySlot.slot === "a" ? (schedule as any).aTimeActualStartTime :
+                    mySlot.slot === "b" ? (schedule as any).bTimeActualStartTime :
+                    (schedule as any).cTimeActualStartTime
+                  ) : null;
+                  const checkedOutTime = mySlot && schedule ? (
+                    mySlot.slot === "a" ? (schedule as any).aTimeActualEndTime :
+                    mySlot.slot === "b" ? (schedule as any).bTimeActualEndTime :
+                    (schedule as any).cTimeActualEndTime
+                  ) : null;
+
+                  return (
                   <Card
                     key={d.dateStr}
                     className={`border-border transition-all ${
@@ -499,7 +554,7 @@ export default function Home() {
                               </button>
                             </PopoverTrigger>
                             <PopoverContent className="w-48 p-2 bg-card border-border" align="end">
-                              <p className="text-xs font-medium text-muted-foreground mb-2 px-1">퇴근 시간 선택</p>
+                              <p className="text-xs font-medium text-muted-foreground mb-2 px-1">퇴근 시간 수정</p>
                               <div className="grid grid-cols-2 gap-1">
                                 {END_TIMES.map((t) => (
                                   <button
@@ -528,9 +583,73 @@ export default function Home() {
                           </Popover>
                         )}
                       </div>
+
+                      {/* 출근/퇴근 버튼 - 오늘 날짜이고 내 근무가 있을 때만 표시 */}
+                      {today && isMyDay && mySlot && schedule && (
+                        <div className="mt-3 pt-3 border-t border-border/50">
+                          <div className="flex gap-2">
+                            {/* 출근 버튼 */}
+                            {checkedInTime ? (
+                              <div className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                <span className="text-xs font-medium text-green-500">출근 {checkedInTime}</span>
+                              </div>
+                            ) : (
+                              <Button
+                                className="flex-1 h-9 gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm"
+                                disabled={checkInMutation.isPending}
+                                onClick={() => {
+                                  const actualTime = getCurrentTimeStr();
+                                  const roundedTime = roundTimeToNearest30Min(actualTime);
+                                  checkInMutation.mutate({
+                                    scheduleDate: d.dateStr,
+                                    timeSlot: mySlot.slot,
+                                    startTime: roundedTime,
+                                    actualStartTime: actualTime,
+                                  });
+                                }}
+                              >
+                                <LogIn className="w-4 h-4" />
+                                출근
+                              </Button>
+                            )}
+
+                            {/* 퇴근 버튼 */}
+                            {checkedOutTime ? (
+                              <div className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                                <CheckCircle className="w-4 h-4 text-blue-400" />
+                                <span className="text-xs font-medium text-blue-400">퇴근 {checkedOutTime}</span>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                className="flex-1 h-9 gap-1.5 bg-transparent border-primary/40 text-primary hover:bg-primary/10 text-sm"
+                                disabled={checkOutMutation.isPending || !checkedInTime}
+                                onClick={() => {
+                                  const actualTime = getCurrentTimeStr();
+                                  const roundedTime = roundTimeToNearest30Min(actualTime);
+                                  checkOutMutation.mutate({
+                                    scheduleDate: d.dateStr,
+                                    timeSlot: mySlot.slot,
+                                    endTime: roundedTime,
+                                    actualEndTime: actualTime,
+                                  });
+                                }}
+                              >
+                                <LogOut className="w-4 h-4" />
+                                퇴근
+                              </Button>
+                            )}
+                          </div>
+                          {!checkedInTime && (
+                            <p className="text-[10px] text-muted-foreground text-center mt-1.5">출근 버튼을 먼저 눌러주세요</p>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
-                );
+                  );
+                }
               })}
             </TabsContent>
 

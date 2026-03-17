@@ -144,6 +144,38 @@ export const appRouter = router({
         return updateScheduleTime(input);
       }),
 
+    checkIn: publicProcedure
+      .input(z.object({
+        scheduleDate: z.string(),
+        timeSlot: z.enum(["a", "b", "c"]),
+        startTime: z.string(),       // 30분 반올림된 시간
+        actualStartTime: z.string(), // 실제 입력 시간
+      }))
+      .mutation(async ({ input }) => {
+        return updateScheduleTime({
+          scheduleDate: input.scheduleDate,
+          timeSlot: input.timeSlot,
+          startTime: input.startTime,
+          actualStartTime: input.actualStartTime,
+        });
+      }),
+
+    checkOut: publicProcedure
+      .input(z.object({
+        scheduleDate: z.string(),
+        timeSlot: z.enum(["a", "b", "c"]),
+        endTime: z.string(),         // 30분 반올림된 시간
+        actualEndTime: z.string(),   // 실제 입력 시간
+      }))
+      .mutation(async ({ input }) => {
+        return updateScheduleEndTime({
+          scheduleDate: input.scheduleDate,
+          timeSlot: input.timeSlot,
+          endTime: input.endTime,
+          actualEndTime: input.actualEndTime,
+        });
+      }),
+
     weeklyWorkerCounts: publicProcedure
       .input(z.object({
         startDate: z.string(),
