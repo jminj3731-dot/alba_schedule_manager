@@ -127,6 +127,7 @@ export const appRouter = router({
         scheduleDate: z.string(),
         timeSlot: z.enum(["a", "b", "c"]),
         endTime: z.string(),
+        actualEndTime: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
         return updateScheduleEndTime(input);

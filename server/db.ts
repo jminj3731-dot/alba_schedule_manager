@@ -188,6 +188,7 @@ export async function updateScheduleEndTime(data: {
   scheduleDate: string;
   timeSlot: "a" | "b" | "c";
   endTime: string;
+  actualEndTime?: string;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -195,9 +196,9 @@ export async function updateScheduleEndTime(data: {
   if (!existing) throw new Error("Schedule not found for date: " + data.scheduleDate);
 
   const updateField =
-    data.timeSlot === "a" ? { aTimeEndTime: data.endTime } :
-    data.timeSlot === "b" ? { bTimeEndTime: data.endTime } :
-    { cTimeEndTime: data.endTime };
+    data.timeSlot === "a" ? { aTimeEndTime: data.endTime, aTimeActualEndTime: data.actualEndTime || data.endTime } :
+    data.timeSlot === "b" ? { bTimeEndTime: data.endTime, bTimeActualEndTime: data.actualEndTime || data.endTime } :
+    { cTimeEndTime: data.endTime, cTimeActualEndTime: data.actualEndTime || data.endTime };
 
   await db.update(schedules).set(updateField).where(eq(schedules.id, existing.id));
   return { success: true };

@@ -40,6 +40,29 @@ const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 const WEEKEND_DAYS = ["금", "토"];
 const ADMIN_PASSWORD = "대한한우";
 
+function roundTimeToNearest30Min(timeStr: string): string {
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return timeStr;
+  let roundedMinutes = minutes;
+  let roundedHours = hours;
+  if (minutes < 15) {
+    roundedMinutes = 0;
+  } else if (minutes < 45) {
+    roundedMinutes = 30;
+  } else {
+    roundedMinutes = 0;
+    roundedHours = (hours + 1) % 24;
+  }
+  return `${String(roundedHours).padStart(2, "0")}:${String(roundedMinutes).padStart(2, "0")}`;
+}
+
+function getCurrentTimeStr(): string {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
 function toLocalDateStr(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -99,12 +122,13 @@ export default function Home() {
       toast.success("퇴근 시간이 수정되었습니다.");
       if (loggedInName) {
         const worker = workers.find((w) => w.name === loggedInName);
+        const actualTimeStr = variables.actualEndTime || variables.endTime;
         createActivityLogMutation.mutate({
           workerId: worker?.id ?? null,
           workerName: loggedInName,
           actionType: "end_time_update",
-          description: `${loggedInName}님이 ${variables.scheduleDate} ${variables.timeSlot.toUpperCase()}타임 퇴근 시간을 ${variables.endTime}으로 수정했습니다.`,
-          metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, endTime: variables.endTime }),
+          description: `${loggedInName}님이 ${variables.scheduleDate} ${variables.timeSlot.toUpperCase()}타임 실제 퇴근 시간 ${actualTimeStr}을 직접 입력하여 ${variables.endTime}으로 기록되었습니다.`,
+          metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, actualEndTime: actualTimeStr, displayEndTime: variables.endTime }),
         });
       }
     },
@@ -481,10 +505,13 @@ export default function Home() {
                                   <button
                                     key={t}
                                     onClick={() => {
+                                      const actualTime = getCurrentTimeStr();
+                                      const roundedTime = roundTimeToNearest30Min(actualTime);
                                       updateEndTimeMutation.mutate({
                                         scheduleDate: d.dateStr,
                                         timeSlot: mySlot.slot,
-                                        endTime: t,
+                                        endTime: roundedTime,
+                                        actualEndTime: actualTime,
                                       });
                                     }}
                                     className={`text-xs py-1.5 px-2 rounded-md transition-colors ${

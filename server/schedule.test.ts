@@ -399,3 +399,60 @@ describe("급여 계산 기간 로직", () => {
     expect(minutesToDecimalHours(totalMinutes)).toBe(12);
   });
 });
+
+
+describe("시간 반올림 유틸리티", () => {
+  function roundTimeToNearest30Min(timeStr: string): string {
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return timeStr;
+    let roundedMinutes = minutes;
+    let roundedHours = hours;
+    if (minutes < 15) {
+      roundedMinutes = 0;
+    } else if (minutes < 45) {
+      roundedMinutes = 30;
+    } else {
+      roundedMinutes = 0;
+      roundedHours = (hours + 1) % 24;
+    }
+    return `${String(roundedHours).padStart(2, "0")}:${String(roundedMinutes).padStart(2, "0")}`;
+  }
+
+  it("5:20 → 5:30으로 반올림", () => {
+    expect(roundTimeToNearest30Min("05:20")).toBe("05:30");
+  });
+
+  it("5:10 → 5:00으로 반올림", () => {
+    expect(roundTimeToNearest30Min("05:10")).toBe("05:00");
+  });
+
+  it("5:44 → 5:30으로 반올림", () => {
+    expect(roundTimeToNearest30Min("05:44")).toBe("05:30");
+  });
+
+  it("5:45 → 6:00으로 반올림 (시간 증가)", () => {
+    expect(roundTimeToNearest30Min("05:45")).toBe("06:00");
+  });
+
+  it("23:50 → 0:00으로 반올림 (자정 넘김)", () => {
+    expect(roundTimeToNearest30Min("23:50")).toBe("00:00");
+  });
+
+  it("17:23 → 17:30으로 반올림", () => {
+    expect(roundTimeToNearest30Min("17:23")).toBe("17:30");
+  });
+
+  it("22:17 → 22:30으로 반올림", () => {
+    expect(roundTimeToNearest30Min("22:17")).toBe("22:30");
+  });
+
+  it("정각 시간은 그대로 유지", () => {
+    expect(roundTimeToNearest30Min("17:00")).toBe("17:00");
+    expect(roundTimeToNearest30Min("22:00")).toBe("22:00");
+  });
+
+  it("30분 시간은 그대로 유지", () => {
+    expect(roundTimeToNearest30Min("17:30")).toBe("17:30");
+    expect(roundTimeToNearest30Min("22:30")).toBe("22:30");
+  });
+});
