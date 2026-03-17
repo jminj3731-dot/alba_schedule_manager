@@ -456,3 +456,51 @@ describe("시간 반올림 유틸리티", () => {
     expect(roundTimeToNearest30Min("22:30")).toBe("22:30");
   });
 });
+
+// GPS 거리 계산 (Haversine) 테스트
+describe("GPS 거리 계산 (Haversine)", () => {
+  const STORE_LAT = 37.902136;
+  const STORE_LNG = 127.0552767;
+  const STORE_RADIUS_M = 100;
+
+  function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371000;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  it("가게 위치 자체는 거리 0m", () => {
+    const dist = getDistanceMeters(STORE_LAT, STORE_LNG, STORE_LAT, STORE_LNG);
+    expect(dist).toBeCloseTo(0, 1);
+  });
+
+  it("가게에서 50m 이내 위치는 반경 내", () => {
+    // 약 50m 북쪽 (위도 0.00045도 ≈ 50m)
+    const nearLat = STORE_LAT + 0.00045;
+    const dist = getDistanceMeters(STORE_LAT, STORE_LNG, nearLat, STORE_LNG);
+    expect(dist).toBeLessThan(STORE_RADIUS_M);
+  });
+
+  it("가게에서 200m 이상 떨어진 위치는 반경 밖", () => {
+    // 약 200m 북쪽 (위도 0.0018도 ≈ 200m)
+    const farLat = STORE_LAT + 0.0018;
+    const dist = getDistanceMeters(STORE_LAT, STORE_LNG, farLat, STORE_LNG);
+    expect(dist).toBeGreaterThan(STORE_RADIUS_M);
+  });
+
+  it("서울 좌표는 가게에서 수십 km 이상 떨어짐", () => {
+    // 서울 시청 좌표
+    const seoulLat = 37.5665;
+    const seoulLng = 126.9780;
+    const dist = getDistanceMeters(STORE_LAT, STORE_LNG, seoulLat, seoulLng);
+    expect(dist).toBeGreaterThan(30000); // 30km 이상
+  });
+});

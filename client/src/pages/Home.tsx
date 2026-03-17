@@ -42,6 +42,26 @@ const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 const WEEKEND_DAYS = ["금", "토"];
 const ADMIN_PASSWORD = "대한한우";
 
+// 가게 위치: 경기도 동두천시 어수로 113-1 (대한한우숯불구이)
+const STORE_LAT = 37.902136;
+const STORE_LNG = 127.0552767;
+const STORE_RADIUS_M = 100; // 허용 반경 100m
+
+// Haversine 공식으로 두 좌표 간 거리(m) 계산
+function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000; // 지구 반지름 (m)
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 function roundTimeToNearest30Min(timeStr: string): string {
   const [hours, minutes] = timeStr.split(":").map(Number);
   if (isNaN(hours) || isNaN(minutes)) return timeStr;
@@ -105,6 +125,8 @@ export default function Home() {
   const [prefDialogOpen, setPrefDialogOpen] = useState(false);
   const [prefDays, setPrefDays] = useState<string[]>([]);
   const [, navigate] = useLocation();
+  // GPS 위치 상태
+  const [locationChecking, setLocationChecking] = useState(false);
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const startDate = weekDates[0].dateStr;
@@ -511,20 +533,53 @@ export default function Home() {
                         ) : (
                           <Button
                             className="flex-1 h-10 gap-1.5 bg-green-600 hover:bg-green-700 text-white"
-                            disabled={checkInMutation.isPending}
+                            disabled={checkInMutation.isPending || locationChecking}
                             onClick={() => {
-                              const actualTime = getCurrentTimeStr();
-                              const roundedTime = roundTimeToNearest30Min(actualTime);
-                              checkInMutation.mutate({
-                                scheduleDate: todayStr,
-                                timeSlot: todaySlot.slot,
-                                startTime: roundedTime,
-                                actualStartTime: actualTime,
-                              });
+                              if (!navigator.geolocation) {
+                                toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
+                                return;
+                              }
+                              setLocationChecking(true);
+                              navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                  setLocationChecking(false);
+                                  const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, STORE_LAT, STORE_LNG);
+                                  if (dist > STORE_RADIUS_M) {
+                                    toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (\ud604재 거리: ${Math.round(dist)}m)\n가게 근처에서만 출근할 수 있습니다.`);
+                                    return;
+                                  }
+                                  const actualTime = getCurrentTimeStr();
+                                  const roundedTime = roundTimeToNearest30Min(actualTime);
+                                  checkInMutation.mutate({
+                                    scheduleDate: todayStr,
+                                    timeSlot: todaySlot.slot,
+                                    startTime: roundedTime,
+                                    actualStartTime: actualTime,
+                                  });
+                                },
+                                (err) => {
+                                  setLocationChecking(false);
+                                  if (err.code === 1) {
+                                    toast.error("위치 권한이 거부되었습니다.\n브라우저 설정에서 위치 권한을 허용해주세요.");
+                                  } else {
+                                    toast.error("위치를 확인할 수 없습니다. 다시 시도해주세요.");
+                                  }
+                                },
+                                { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
+                              );
                             }}
                           >
-                            <LogIn className="w-4 h-4" />
-                            출근
+                            {locationChecking ? (
+                              <>
+                                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                위치 확인 중...
+                              </>
+                            ) : (
+                              <>
+                                <LogIn className="w-4 h-4" />
+                                출근
+                              </>
+                            )}
                           </Button>
                         )}
                         {checkedOutTime ? (
@@ -536,25 +591,58 @@ export default function Home() {
                           <Button
                             variant="outline"
                             className="flex-1 h-10 gap-1.5 bg-transparent border-primary/40 text-primary hover:bg-primary/10"
-                            disabled={checkOutMutation.isPending || !checkedInTime}
+                            disabled={checkOutMutation.isPending || !checkedInTime || locationChecking}
                             onClick={() => {
-                              const actualTime = getCurrentTimeStr();
-                              const roundedTime = roundTimeToNearest30Min(actualTime);
-                              checkOutMutation.mutate({
-                                scheduleDate: todayStr,
-                                timeSlot: todaySlot.slot,
-                                endTime: roundedTime,
-                                actualEndTime: actualTime,
-                              });
+                              if (!navigator.geolocation) {
+                                toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
+                                return;
+                              }
+                              setLocationChecking(true);
+                              navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                  setLocationChecking(false);
+                                  const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, STORE_LAT, STORE_LNG);
+                                  if (dist > STORE_RADIUS_M) {
+                                    toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (\ud604재 거리: ${Math.round(dist)}m)\n가게 근처에서만 퇴근할 수 있습니다.`);
+                                    return;
+                                  }
+                                  const actualTime = getCurrentTimeStr();
+                                  const roundedTime = roundTimeToNearest30Min(actualTime);
+                                  checkOutMutation.mutate({
+                                    scheduleDate: todayStr,
+                                    timeSlot: todaySlot.slot,
+                                    endTime: roundedTime,
+                                    actualEndTime: actualTime,
+                                  });
+                                },
+                                (err) => {
+                                  setLocationChecking(false);
+                                  if (err.code === 1) {
+                                    toast.error("위치 권한이 거부되었습니다.\n브라우저 설정에서 위치 권한을 허용해주세요.");
+                                  } else {
+                                    toast.error("위치를 확인할 수 없습니다. 다시 시도해주세요.");
+                                  }
+                                },
+                                { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
+                              );
                             }}
                           >
-                            <LogOut className="w-4 h-4" />
-                            퇴근
+                            {locationChecking ? (
+                              <>
+                                <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                위치 확인 중...
+                              </>
+                            ) : (
+                              <>
+                                <LogOut className="w-4 h-4" />
+                                퇴근
+                              </>
+                            )}
                           </Button>
                         )}
                       </div>
                       {!checkedInTime && (
-                        <p className="text-[10px] text-muted-foreground text-center mt-1.5">출근 버튼을 먼저 눌러주세요</p>
+                        <p className="text-[10px] text-muted-foreground text-center mt-1.5">출근 버튼을 먼저 눌러주세요 (가게 반경 100m 내에서만 가능)</p>
                       )}
                     </>
                   )}
@@ -704,20 +792,53 @@ export default function Home() {
                             ) : (
                               <Button
                                 className="flex-1 h-9 gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm"
-                                disabled={checkInMutation.isPending}
+                                disabled={checkInMutation.isPending || locationChecking}
                                 onClick={() => {
-                                  const actualTime = getCurrentTimeStr();
-                                  const roundedTime = roundTimeToNearest30Min(actualTime);
-                                  checkInMutation.mutate({
-                                    scheduleDate: d.dateStr,
-                                    timeSlot: mySlot.slot,
-                                    startTime: roundedTime,
-                                    actualStartTime: actualTime,
-                                  });
+                                  if (!navigator.geolocation) {
+                                    toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
+                                    return;
+                                  }
+                                  setLocationChecking(true);
+                                  navigator.geolocation.getCurrentPosition(
+                                    (pos) => {
+                                      setLocationChecking(false);
+                                      const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, STORE_LAT, STORE_LNG);
+                                      if (dist > STORE_RADIUS_M) {
+                                        toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (현재 거리: ${Math.round(dist)}m)\n가게 근처에서만 출근할 수 있습니다.`);
+                                        return;
+                                      }
+                                      const actualTime = getCurrentTimeStr();
+                                      const roundedTime = roundTimeToNearest30Min(actualTime);
+                                      checkInMutation.mutate({
+                                        scheduleDate: d.dateStr,
+                                        timeSlot: mySlot.slot,
+                                        startTime: roundedTime,
+                                        actualStartTime: actualTime,
+                                      });
+                                    },
+                                    (err) => {
+                                      setLocationChecking(false);
+                                      if (err.code === 1) {
+                                        toast.error("위치 권한이 거부되었습니다.\n브라우저 설정에서 위치 권한을 허용해주세요.");
+                                      } else {
+                                        toast.error("위치를 확인할 수 없습니다. 다시 시도해주세요.");
+                                      }
+                                    },
+                                    { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
+                                  );
                                 }}
                               >
-                                <LogIn className="w-4 h-4" />
-                                출근
+                                {locationChecking ? (
+                                  <>
+                                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    위치 확인 중...
+                                  </>
+                                ) : (
+                                  <>
+                                    <LogIn className="w-4 h-4" />
+                                    출근
+                                  </>
+                                )}
                               </Button>
                             )}
 
@@ -731,25 +852,58 @@ export default function Home() {
                               <Button
                                 variant="outline"
                                 className="flex-1 h-9 gap-1.5 bg-transparent border-primary/40 text-primary hover:bg-primary/10 text-sm"
-                                disabled={checkOutMutation.isPending || !checkedInTime}
+                                disabled={checkOutMutation.isPending || !checkedInTime || locationChecking}
                                 onClick={() => {
-                                  const actualTime = getCurrentTimeStr();
-                                  const roundedTime = roundTimeToNearest30Min(actualTime);
-                                  checkOutMutation.mutate({
-                                    scheduleDate: d.dateStr,
-                                    timeSlot: mySlot.slot,
-                                    endTime: roundedTime,
-                                    actualEndTime: actualTime,
-                                  });
+                                  if (!navigator.geolocation) {
+                                    toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
+                                    return;
+                                  }
+                                  setLocationChecking(true);
+                                  navigator.geolocation.getCurrentPosition(
+                                    (pos) => {
+                                      setLocationChecking(false);
+                                      const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, STORE_LAT, STORE_LNG);
+                                      if (dist > STORE_RADIUS_M) {
+                                        toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (현재 거리: ${Math.round(dist)}m)\n가게 근처에서만 퇴근할 수 있습니다.`);
+                                        return;
+                                      }
+                                      const actualTime = getCurrentTimeStr();
+                                      const roundedTime = roundTimeToNearest30Min(actualTime);
+                                      checkOutMutation.mutate({
+                                        scheduleDate: d.dateStr,
+                                        timeSlot: mySlot.slot,
+                                        endTime: roundedTime,
+                                        actualEndTime: actualTime,
+                                      });
+                                    },
+                                    (err) => {
+                                      setLocationChecking(false);
+                                      if (err.code === 1) {
+                                        toast.error("위치 권한이 거부되었습니다.\n브라우저 설정에서 위치 권한을 허용해주세요.");
+                                      } else {
+                                        toast.error("위치를 확인할 수 없습니다. 다시 시도해주세요.");
+                                      }
+                                    },
+                                    { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
+                                  );
                                 }}
                               >
-                                <LogOut className="w-4 h-4" />
-                                퇴근
+                                {locationChecking ? (
+                                  <>
+                                    <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                    위치 확인 중...
+                                  </>
+                                ) : (
+                                  <>
+                                    <LogOut className="w-4 h-4" />
+                                    퇴근
+                                  </>
+                                )}
                               </Button>
                             )}
                           </div>
                           {!checkedInTime && (
-                            <p className="text-[10px] text-muted-foreground text-center mt-1.5">출근 버튼을 먼저 눌러주세요</p>
+                            <p className="text-[10px] text-muted-foreground text-center mt-1.5">출근 버튼을 먼저 눌러주세요 (가게 반경 100m 내에서만 가능)</p>
                           )}
                         </div>
                       )}
