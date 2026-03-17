@@ -57,6 +57,13 @@
       "when": 1773728405068,
       "tag": "0007_powerful_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1773740923955,
+      "tag": "0008_clumsy_mojo",
+      "breakpoints": true
     }
   ]
 }

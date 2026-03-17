@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `workers` ADD `payDay` int DEFAULT 14;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2A8Aro7D2nxffKJ.root --database o2y7YjaHBsMCC4pdAvoHmq --execute ALTER TABLE `workers` ADD `payDay` int DEFAULT 14;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2088
+}

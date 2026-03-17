@@ -103,7 +103,7 @@ export async function getWorkerById(id: number) {
   return result[0];
 }
 
-export async function createWorker(data: { name: string; skillLevel: "main" | "sub"; fixedDaysOff: string; preferredDays?: string }) {
+export async function createWorker(data: { name: string; skillLevel: "main" | "sub"; fixedDaysOff: string; preferredDays?: string; payDay?: number }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(workers).values({
@@ -111,11 +111,12 @@ export async function createWorker(data: { name: string; skillLevel: "main" | "s
     skillLevel: data.skillLevel,
     fixedDaysOff: data.fixedDaysOff || "",
     preferredDays: data.preferredDays || "",
+    payDay: data.payDay ?? 14,
   });
   return { id: result[0].insertId };
 }
 
-export async function updateWorker(id: number, data: { name?: string; skillLevel?: "main" | "sub"; fixedDaysOff?: string; preferredDays?: string }) {
+export async function updateWorker(id: number, data: { name?: string; skillLevel?: "main" | "sub"; fixedDaysOff?: string; preferredDays?: string; payDay?: number }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const updateSet: Record<string, unknown> = {};
@@ -123,6 +124,7 @@ export async function updateWorker(id: number, data: { name?: string; skillLevel
   if (data.skillLevel !== undefined) updateSet.skillLevel = data.skillLevel;
   if (data.fixedDaysOff !== undefined) updateSet.fixedDaysOff = data.fixedDaysOff;
   if (data.preferredDays !== undefined) updateSet.preferredDays = data.preferredDays;
+  if (data.payDay !== undefined) updateSet.payDay = data.payDay;
   if (Object.keys(updateSet).length === 0) return;
   await db.update(workers).set(updateSet).where(eq(workers.id, id));
 }

@@ -30,6 +30,8 @@ export const workers = mysqlTable("workers", {
   fixedDaysOff: varchar("fixedDaysOff", { length: 100 }).default(""),
   /** 선호 근무 요일 - 쉼표로 구분된 요일 문자열 (예: "월,화,수,금") */
   preferredDays: varchar("preferredDays", { length: 100 }).default(""),
+  /** 급여일 (1~31, 예: 14 = 매월 14일) */
+  payDay: int("payDay").default(14),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

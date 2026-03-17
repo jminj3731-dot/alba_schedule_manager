@@ -58,6 +58,7 @@ export default function Settings() {
   const [formSkillLevel, setFormSkillLevel] = useState<"main" | "sub">("sub");
   const [formDaysOff, setFormDaysOff] = useState<string[]>([]);
   const [formPreferredDays, setFormPreferredDays] = useState<string[]>([]);
+  const [formPayDay, setFormPayDay] = useState<number>(14);
 
   const utils = trpc.useUtils();
   const { data: workers = [], isLoading } = trpc.workers.list.useQuery();
@@ -131,6 +132,7 @@ export default function Settings() {
     setFormSkillLevel("sub");
     setFormDaysOff([]);
     setFormPreferredDays([]);
+    setFormPayDay(14);
     setEditingWorker(null);
     setDialogOpen(false);
   }
@@ -141,6 +143,7 @@ export default function Settings() {
     setFormSkillLevel(worker.skillLevel);
     setFormDaysOff(worker.fixedDaysOff ? worker.fixedDaysOff.split(",").filter(Boolean) : []);
     setFormPreferredDays(worker.preferredDays ? worker.preferredDays.split(",").filter(Boolean) : []);
+    setFormPayDay(worker.payDay ?? 14);
     setDialogOpen(true);
   }
 
@@ -163,6 +166,7 @@ export default function Settings() {
         skillLevel: formSkillLevel,
         fixedDaysOff: daysOffStr,
         preferredDays: preferredStr,
+        payDay: formPayDay,
       });
     } else {
       createMutation.mutate({
@@ -170,6 +174,7 @@ export default function Settings() {
         skillLevel: formSkillLevel,
         fixedDaysOff: daysOffStr,
         preferredDays: preferredStr,
+        payDay: formPayDay,
       });
     }
   }
@@ -361,6 +366,28 @@ export default function Settings() {
                 </div>
                 <p className="text-[10px] text-muted-foreground">자동 배정 시 선호 요일이 우선 반영됩니다.</p>
               </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  급여일
+                  <span className="text-[10px] text-muted-foreground font-normal">(매월 몇 일에 급여를 받는지)</span>
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={formPayDay}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value);
+                      if (!isNaN(v) && v >= 1 && v <= 31) setFormPayDay(v);
+                    }}
+                    className="bg-secondary/50 w-24"
+                    placeholder="14"
+                  />
+                  <span className="text-sm text-muted-foreground">일</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">급여 계산기에서 자동으로 불러옵니다.</p>
+              </div>
             </div>
             <DialogFooter>
               <DialogClose asChild>
@@ -425,6 +452,12 @@ function WorkerRow({
             ))}
           </div>
         )}
+        <div className="flex items-center gap-1 mt-1">
+          <span className="text-[10px] text-muted-foreground">급여일:</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+            매월 {worker.payDay ?? 14}일
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>

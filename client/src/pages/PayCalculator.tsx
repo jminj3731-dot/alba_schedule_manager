@@ -169,8 +169,14 @@ export default function PayCalculator() {
               <Select
                 value={selectedWorkerId?.toString() ?? ""}
                 onValueChange={(v) => {
-                  setSelectedWorkerId(Number(v));
+                  const id = Number(v);
+                  setSelectedWorkerId(id);
                   setCalculated(false);
+                  // 알바생의 급여일 자동 적용
+                  const worker = workers.find((w) => w.id === id);
+                  if (worker?.payDay) {
+                    setPayDay(worker.payDay);
+                  }
                 }}
               >
                 <SelectTrigger className="h-11 bg-secondary/30">

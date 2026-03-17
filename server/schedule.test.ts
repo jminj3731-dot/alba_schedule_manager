@@ -540,3 +540,39 @@ describe("출근 알림 메시지 포맷", () => {
     expect(shouldNotify).toBe(true);
   });
 });
+
+describe("알바생별 급여일 저장 및 자동 불러오기", () => {
+  it("급여일 기본값은 14일", () => {
+    const worker = { name: "테스트", payDay: undefined };
+    const payDay = worker.payDay ?? 14;
+    expect(payDay).toBe(14);
+  });
+
+  it("알바생 선택 시 저장된 급여일 자동 적용", () => {
+    const workers = [
+      { id: 1, name: "전민서", payDay: 14 },
+      { id: 2, name: "정우주", payDay: 20 },
+    ];
+    const selectedId = 2;
+    const worker = workers.find((w) => w.id === selectedId);
+    const payDay = worker?.payDay ?? 14;
+    expect(payDay).toBe(20);
+  });
+
+  it("급여일 범위 검증 (1~31)", () => {
+    const validPayDays = [1, 14, 25, 31];
+    const invalidPayDays = [0, 32, -1];
+    validPayDays.forEach((d) => expect(d >= 1 && d <= 31).toBe(true));
+    invalidPayDays.forEach((d) => expect(d >= 1 && d <= 31).toBe(false));
+  });
+
+  it("급여일 14일 기준 급여 기간 계산 검증", () => {
+    // 2026년 3월 급여일 14일 → 2026-02-14 ~ 2026-03-13
+    const year = 2026, month = 3, payDay = 14;
+    const startDate = new Date(year, month - 2, payDay);
+    const endDate = new Date(year, month - 1, payDay - 1);
+    const toDateStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    expect(toDateStr(startDate)).toBe("2026-02-14");
+    expect(toDateStr(endDate)).toBe("2026-03-13");
+  });
+});

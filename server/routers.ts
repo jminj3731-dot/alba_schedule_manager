@@ -63,6 +63,7 @@ export const appRouter = router({
         skillLevel: z.enum(["main", "sub"]),
         fixedDaysOff: z.string().default(""),
         preferredDays: z.string().default(""),
+        payDay: z.number().min(1).max(31).default(14),
       }))
       .mutation(async ({ input }) => {
         return createWorker(input);
@@ -75,6 +76,7 @@ export const appRouter = router({
         skillLevel: z.enum(["main", "sub"]).optional(),
         fixedDaysOff: z.string().optional(),
         preferredDays: z.string().optional(),
+        payDay: z.number().min(1).max(31).optional(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
