@@ -78,6 +78,26 @@ function roundTimeToNearest30Min(timeStr: string): string {
   return `${String(roundedHours).padStart(2, "0")}:${String(roundedMinutes).padStart(2, "0")}`;
 }
 
+// 출근 시간 계산: 예정 시간 이전/정시 → 예정 시간, 예정 시간 이후 → 다음 30분 올림
+function calcCheckInTime(actualTimeStr: string, scheduledTimeStr: string): string {
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const actualMins = toMinutes(actualTimeStr);
+  const scheduledMins = toMinutes(scheduledTimeStr);
+  // 예정 시간 이전이거나 정시면 예정 시간으로 기록
+  if (actualMins <= scheduledMins) {
+    return scheduledTimeStr;
+  }
+  // 예정 시간 이후면 다음 30분 단위로 올림
+  const remainder = actualMins % 30;
+  const ceilMins = remainder === 0 ? actualMins : actualMins + (30 - remainder);
+  const h = Math.floor(ceilMins / 60) % 24;
+  const m = ceilMins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 function getCurrentTimeStr(): string {
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, "0");
@@ -549,7 +569,7 @@ export default function Home() {
                                     return;
                                   }
                                   const actualTime = getCurrentTimeStr();
-                                  const roundedTime = roundTimeToNearest30Min(actualTime);
+                                  const roundedTime = calcCheckInTime(actualTime, todaySlot.startTime);
                                   checkInMutation.mutate({
                                     scheduleDate: todayStr,
                                     timeSlot: todaySlot.slot,
@@ -806,7 +826,7 @@ export default function Home() {
                                         return;
                                       }
                                       const actualTime = getCurrentTimeStr();
-                                      const roundedTime = roundTimeToNearest30Min(actualTime);
+                                      const roundedTime = calcCheckInTime(actualTime, mySlot.startTime);
                                       checkInMutation.mutate({
                                         scheduleDate: d.dateStr,
                                         timeSlot: mySlot.slot,

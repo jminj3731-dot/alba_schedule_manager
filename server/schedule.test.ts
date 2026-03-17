@@ -576,3 +576,46 @@ describe("알바생별 급여일 저장 및 자동 불러오기", () => {
     expect(toDateStr(endDate)).toBe("2026-03-13");
   });
 });
+
+// ===== calcCheckInTime 로직 테스트 =====
+describe("calcCheckInTime - 출근 시간 기록 로직", () => {
+  function calcCheckInTime(actualTimeStr: string, scheduledTimeStr: string): string {
+    const toMinutes = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+    const actualMins = toMinutes(actualTimeStr);
+    const scheduledMins = toMinutes(scheduledTimeStr);
+    if (actualMins <= scheduledMins) {
+      return scheduledTimeStr;
+    }
+    const remainder = actualMins % 30;
+    const ceilMins = remainder === 0 ? actualMins : actualMins + (30 - remainder);
+    const h = Math.floor(ceilMins / 60) % 24;
+    const m = ceilMins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  it("예정 시간보다 일찍 오면 예정 시간으로 기록", () => {
+    expect(calcCheckInTime("17:00", "17:30")).toBe("17:30");
+    expect(calcCheckInTime("17:10", "17:30")).toBe("17:30");
+    expect(calcCheckInTime("05:00", "05:30")).toBe("05:30");
+  });
+
+  it("정시에 오면 예정 시간으로 기록", () => {
+    expect(calcCheckInTime("17:30", "17:30")).toBe("17:30");
+    expect(calcCheckInTime("18:00", "18:00")).toBe("18:00");
+  });
+
+  it("예정 시간보다 늦으면 다음 30분 올림으로 기록", () => {
+    expect(calcCheckInTime("17:40", "17:30")).toBe("18:00");
+    expect(calcCheckInTime("17:31", "17:30")).toBe("18:00");
+    expect(calcCheckInTime("18:01", "18:00")).toBe("18:30");
+    expect(calcCheckInTime("18:29", "18:00")).toBe("18:30");
+  });
+
+  it("정각에 늦으면 다음 정각으로 올림", () => {
+    expect(calcCheckInTime("18:31", "18:00")).toBe("19:00");
+    expect(calcCheckInTime("18:30", "18:00")).toBe("18:30");
+  });
+});
