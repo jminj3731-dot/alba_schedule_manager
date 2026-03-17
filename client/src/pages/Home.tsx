@@ -755,13 +755,11 @@ export default function Home() {
                                   <button
                                     key={t}
                                     onClick={() => {
-                                      const actualTime = getCurrentTimeStr();
-                                      const roundedTime = roundTimeToNearest30Min(actualTime);
                                       updateEndTimeMutation.mutate({
                                         scheduleDate: d.dateStr,
                                         timeSlot: mySlot.slot,
-                                        endTime: roundedTime,
-                                        actualEndTime: actualTime,
+                                        endTime: t,
+                                        actualEndTime: t,
                                       });
                                     }}
                                     className={`text-xs py-1.5 px-2 rounded-md transition-colors ${
