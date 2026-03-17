@@ -64,6 +64,13 @@
       "when": 1773740923955,
       "tag": "0008_clumsy_mojo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1773773060811,
+      "tag": "0009_broken_scrambler",
+      "breakpoints": true
     }
   ]
 }

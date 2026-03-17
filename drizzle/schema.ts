@@ -32,6 +32,8 @@ export const workers = mysqlTable("workers", {
   preferredDays: varchar("preferredDays", { length: 100 }).default(""),
   /** 급여일 (1~31, 예: 14 = 매월 14일) */
   payDay: int("payDay").default(14),
+  /** 이메일 주소 (출근 예정 알림 발송용) */
+  email: varchar("email", { length: 320 }),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

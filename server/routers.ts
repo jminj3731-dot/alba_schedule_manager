@@ -4,6 +4,8 @@ import { notifyOwner } from "./_core/notification";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
+import { sendShiftReminderEmail } from "./email";
+import { checkAndSendShiftReminders } from "./emailScheduler";
 import {
   getAllWorkers,
   getWorkerById,
@@ -64,6 +66,7 @@ export const appRouter = router({
         fixedDaysOff: z.string().default(""),
         preferredDays: z.string().default(""),
         payDay: z.number().min(1).max(31).default(14),
+        email: z.string().email().optional().nullable(),
       }))
       .mutation(async ({ input }) => {
         return createWorker(input);
@@ -77,6 +80,7 @@ export const appRouter = router({
         fixedDaysOff: z.string().optional(),
         preferredDays: z.string().optional(),
         payDay: z.number().min(1).max(31).optional(),
+        email: z.string().email().optional().nullable(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
@@ -382,6 +386,29 @@ export const appRouter = router({
       }))
       .query(async ({ input }) => {
         return getActivityLogs(input);
+      }),
+  }),
+
+  email: router({
+    /** 수동으로 특정 알바생에게 시프트 알림 이메일 발송 (테스트용) */
+    sendTestReminder: publicProcedure
+      .input(z.object({
+        to: z.string().email(),
+        workerName: z.string(),
+        scheduleDate: z.string(),
+        timeSlot: z.enum(["A", "B", "C"]),
+        startTime: z.string(),
+        endTime: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        return sendShiftReminderEmail(input);
+      }),
+
+    /** 스케줄러 수동 실행 (관리자 전용) */
+    triggerCheck: publicProcedure
+      .mutation(async () => {
+        await checkAndSendShiftReminders();
+        return { success: true };
       }),
   }),
 });

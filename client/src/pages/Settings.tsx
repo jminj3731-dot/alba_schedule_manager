@@ -59,6 +59,7 @@ export default function Settings() {
   const [formDaysOff, setFormDaysOff] = useState<string[]>([]);
   const [formPreferredDays, setFormPreferredDays] = useState<string[]>([]);
   const [formPayDay, setFormPayDay] = useState<number>(14);
+  const [formEmail, setFormEmail] = useState<string>("");
 
   const utils = trpc.useUtils();
   const { data: workers = [], isLoading } = trpc.workers.list.useQuery();
@@ -133,6 +134,7 @@ export default function Settings() {
     setFormDaysOff([]);
     setFormPreferredDays([]);
     setFormPayDay(14);
+    setFormEmail("");
     setEditingWorker(null);
     setDialogOpen(false);
   }
@@ -144,6 +146,7 @@ export default function Settings() {
     setFormDaysOff(worker.fixedDaysOff ? worker.fixedDaysOff.split(",").filter(Boolean) : []);
     setFormPreferredDays(worker.preferredDays ? worker.preferredDays.split(",").filter(Boolean) : []);
     setFormPayDay(worker.payDay ?? 14);
+    setFormEmail(worker.email ?? "");
     setDialogOpen(true);
   }
 
@@ -159,6 +162,7 @@ export default function Settings() {
     }
     const daysOffStr = formDaysOff.join(",");
     const preferredStr = formPreferredDays.join(",");
+    const emailVal = formEmail.trim() || null;
     if (editingWorker) {
       updateMutation.mutate({
         id: editingWorker.id,
@@ -167,6 +171,7 @@ export default function Settings() {
         fixedDaysOff: daysOffStr,
         preferredDays: preferredStr,
         payDay: formPayDay,
+        email: emailVal,
       });
     } else {
       createMutation.mutate({
@@ -175,6 +180,7 @@ export default function Settings() {
         fixedDaysOff: daysOffStr,
         preferredDays: preferredStr,
         payDay: formPayDay,
+        email: emailVal,
       });
     }
   }
@@ -388,6 +394,20 @@ export default function Settings() {
                 </div>
                 <p className="text-[10px] text-muted-foreground">급여 계산기에서 자동으로 불러옵니다.</p>
               </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  이메일
+                  <span className="text-[10px] text-muted-foreground font-normal">(출근 예정 알림 수신용, 선택)</span>
+                </Label>
+                <Input
+                  type="email"
+                  value={formEmail}
+                  onChange={(e) => setFormEmail(e.target.value)}
+                  placeholder="example@gmail.com"
+                  className="bg-secondary/50"
+                />
+                <p className="text-[10px] text-muted-foreground">입력 시 근무 1시간 전에 자동으로 알림 이메일이 발송됩니다.</p>
+              </div>
             </div>
             <DialogFooter>
               <DialogClose asChild>
@@ -458,6 +478,14 @@ function WorkerRow({
             매월 {worker.payDay ?? 14}일
           </span>
         </div>
+        {worker.email && (
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-[10px] text-muted-foreground">이메일:</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
+              {worker.email}
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>

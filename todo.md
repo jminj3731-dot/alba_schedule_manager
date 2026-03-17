@@ -195,3 +195,13 @@
 - [x] 예정 출근 시간 이후에 누르면 → 다음 30분 단위 올림으로 기록 (5:40 → 6:00)
 - [x] roundTimeToNearest30Min 대신 calcCheckInTime(actualTime, scheduledTime) 함수로 교체
 - [x] 71개 테스트 통과
+
+## v22 출근 예정 이메일 알림 (Resend 연동)
+- [x] Resend API 키 환경변수 저장 (RESEND_API_KEY)
+- [x] DB workers 테이블에 email 필드 추가
+- [x] Settings.tsx 알바생 수정 다이얼로그에 이메일 입력 필드 추가
+- [x] server/email.ts - Resend 이메일 발송 함수 구현
+- [x] server/emailScheduler.ts - 매 5분마다 실행, 1시간 후 근무 예정자 조회 후 이메일 발송
+- [x] routers.ts에 스케줄러 시작 연동
+- [x] 이메일 미설정 알바생은 발송 건너뜀
+- [x] 78개 테스트 통과
