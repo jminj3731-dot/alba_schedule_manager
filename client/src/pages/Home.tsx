@@ -456,6 +456,113 @@ export default function Home() {
             </Card>
           )}
 
+          {/* 오늘 출퇴근 고정 섹션 */}
+          {(() => {
+            const todayStr = toLocalDateStr(new Date());
+            const todaySchedule = schedules.find((s) => s.scheduleDate === todayStr);
+            const todaySlot = todaySchedule ? getMyTimeSlot(todaySchedule) : null;
+            const todayIsOff = todaySchedule && !todaySchedule.isOperating;
+
+            const checkedInTime = todaySlot && todaySchedule ? (
+              todaySlot.slot === "a" ? (todaySchedule as any).aTimeActualStartTime :
+              todaySlot.slot === "b" ? (todaySchedule as any).bTimeActualStartTime :
+              (todaySchedule as any).cTimeActualStartTime
+            ) : null;
+            const checkedOutTime = todaySlot && todaySchedule ? (
+              todaySlot.slot === "a" ? (todaySchedule as any).aTimeActualEndTime :
+              todaySlot.slot === "b" ? (todaySchedule as any).bTimeActualEndTime :
+              (todaySchedule as any).cTimeActualEndTime
+            ) : null;
+
+            return (
+              <Card className="bg-card border-primary/30 border">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-primary">오늘 출퇴근</span>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {new Date().toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", weekday: "short" })}
+                    </span>
+                  </div>
+
+                  {todayIsOff ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Coffee className="w-4 h-4" />
+                      <span className="text-sm">오늘 휴무</span>
+                    </div>
+                  ) : !todaySlot ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <span className="text-sm">오늘 근무 없음</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Badge className="bg-primary text-primary-foreground text-xs px-2 py-0.5">
+                          {todaySlot.label}타임
+                        </Badge>
+                        <span className="text-sm font-medium">{todaySlot.time}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        {checkedInTime ? (
+                          <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                            <span className="text-sm font-medium text-green-500">출근 {checkedInTime}</span>
+                          </div>
+                        ) : (
+                          <Button
+                            className="flex-1 h-10 gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                            disabled={checkInMutation.isPending}
+                            onClick={() => {
+                              const actualTime = getCurrentTimeStr();
+                              const roundedTime = roundTimeToNearest30Min(actualTime);
+                              checkInMutation.mutate({
+                                scheduleDate: todayStr,
+                                timeSlot: todaySlot.slot,
+                                startTime: roundedTime,
+                                actualStartTime: actualTime,
+                              });
+                            }}
+                          >
+                            <LogIn className="w-4 h-4" />
+                            출근
+                          </Button>
+                        )}
+                        {checkedOutTime ? (
+                          <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                            <CheckCircle className="w-4 h-4 text-blue-400" />
+                            <span className="text-sm font-medium text-blue-400">퇴근 {checkedOutTime}</span>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            className="flex-1 h-10 gap-1.5 bg-transparent border-primary/40 text-primary hover:bg-primary/10"
+                            disabled={checkOutMutation.isPending || !checkedInTime}
+                            onClick={() => {
+                              const actualTime = getCurrentTimeStr();
+                              const roundedTime = roundTimeToNearest30Min(actualTime);
+                              checkOutMutation.mutate({
+                                scheduleDate: todayStr,
+                                timeSlot: todaySlot.slot,
+                                endTime: roundedTime,
+                                actualEndTime: actualTime,
+                              });
+                            }}
+                          >
+                            <LogOut className="w-4 h-4" />
+                            퇴근
+                          </Button>
+                        )}
+                      </div>
+                      {!checkedInTime && (
+                        <p className="text-[10px] text-muted-foreground text-center mt-1.5">출근 버튼을 먼저 눌러주세요</p>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Week navigation */}
           <div className="flex items-center justify-between">
             <Button variant="outline" size="icon" className="h-8 w-8 bg-transparent" onClick={() => setWeekOffset((p) => p - 1)}>
