@@ -5,6 +5,15 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // 발신자 이메일 주소 (Resend에서 제공하는 기본 도메인 사용)
 const FROM_EMAIL = "대한한우숯불구이 <onboarding@resend.dev>";
 
+/** 날짜 포맷 공통 유틸 */
+function formatDate(scheduleDate: string): string {
+  const dateObj = new Date(scheduleDate + "T00:00:00+09:00");
+  const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+  const dayName = DAY_NAMES[dateObj.getDay()];
+  const [year, month, day] = scheduleDate.split("-");
+  return `${year}년 ${parseInt(month)}월 ${parseInt(day)}일 (${dayName})`;
+}
+
 /**
  * 근무 1시간 전 알림 이메일 발송
  */
@@ -23,13 +32,7 @@ export async function sendShiftReminderEmail({
   startTime: string;    // HH:MM
   endTime: string;      // HH:MM
 }) {
-  // 날짜 포맷: 2026-03-18 → 2026년 3월 18일 (화)
-  const dateObj = new Date(scheduleDate + "T00:00:00+09:00");
-  const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
-  const dayName = DAY_NAMES[dateObj.getDay()];
-  const [year, month, day] = scheduleDate.split("-");
-  const formattedDate = `${year}년 ${parseInt(month)}월 ${parseInt(day)}일 (${dayName})`;
-
+  const formattedDate = formatDate(scheduleDate);
   const subject = `[대한한우숯불구이] ${workerName}님, 오늘 ${timeSlot}타임 근무 1시간 전입니다`;
 
   const html = `
@@ -60,7 +63,7 @@ export async function sendShiftReminderEmail({
       
       <!-- Schedule Card -->
       <div style="background-color:#fff8f8;border:2px solid #CC0000;border-radius:12px;padding:20px;margin-bottom:20px;">
-        <div style="display:flex;align-items:center;margin-bottom:12px;">
+        <div style="margin-bottom:12px;">
           <span style="background-color:#CC0000;color:#fff;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:bold;">${timeSlot}타임</span>
         </div>
         <table style="width:100%;border-collapse:collapse;">
@@ -112,7 +115,128 @@ export async function sendShiftReminderEmail({
     });
     return { success: true, id: result.data?.id };
   } catch (error) {
-    console.error("[Email] Failed to send shift reminder:", error);
+    console.error("[Email] Failed to send 1h reminder:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+/**
+ * 출근 시간 정각 알림 이메일 발송 ("지금 출근 버튼을 눌러주세요!")
+ */
+export async function sendCheckInNowEmail({
+  to,
+  workerName,
+  scheduleDate,
+  timeSlot,
+  startTime,
+  endTime,
+}: {
+  to: string;
+  workerName: string;
+  scheduleDate: string;
+  timeSlot: "A" | "B" | "C";
+  startTime: string;
+  endTime: string;
+}) {
+  const formattedDate = formatDate(scheduleDate);
+  const subject = `[대한한우숯불구이] ${workerName}님, 지금 출근 버튼을 눌러주세요! ⏰`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>출근 알림</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background-color:#ffffff;">
+    <!-- Header - 강조색 -->
+    <div style="background-color:#CC0000;padding:24px 20px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:8px;">⏰</div>
+      <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:bold;">출근 시간입니다!</h1>
+      <p style="color:#ffcccc;margin:6px 0 0;font-size:13px;">대한한우숯불구이</p>
+    </div>
+    
+    <!-- 긴급 배너 -->
+    <div style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:14px 20px;">
+      <p style="margin:0;font-size:14px;color:#856404;font-weight:bold;">
+        📍 지금 매장에 도착하셨다면 앱에서 출근 버튼을 눌러주세요!
+      </p>
+    </div>
+    
+    <!-- Content -->
+    <div style="padding:28px 20px;">
+      <p style="font-size:16px;color:#333;margin:0 0 16px;">
+        <strong style="color:#CC0000;">${workerName}</strong>님, 출근 시간이 됐습니다!
+      </p>
+      
+      <!-- Schedule Card -->
+      <div style="background-color:#fff8f8;border:2px solid #CC0000;border-radius:12px;padding:20px;margin-bottom:20px;">
+        <div style="margin-bottom:12px;">
+          <span style="background-color:#CC0000;color:#fff;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:bold;">${timeSlot}타임</span>
+          <span style="margin-left:8px;background-color:#28a745;color:#fff;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold;">출근 시간</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:6px 0;color:#888;font-size:13px;width:80px;">📅 날짜</td>
+            <td style="padding:6px 0;color:#333;font-size:14px;font-weight:500;">${formattedDate}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#888;font-size:13px;">⏰ 출근</td>
+            <td style="padding:6px 0;color:#CC0000;font-size:20px;font-weight:bold;">${startTime} ← 지금!</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#888;font-size:13px;">🏁 퇴근</td>
+            <td style="padding:6px 0;color:#333;font-size:14px;">${endTime}</td>
+          </tr>
+        </table>
+      </div>
+      
+      <!-- GPS 안내 -->
+      <div style="background-color:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#2e7d32;font-weight:bold;">📱 출근 체크 방법</p>
+        <p style="margin:0;font-size:13px;color:#388e3c;line-height:1.7;">
+          1. 매장 반경 <strong>100m 이내</strong>에 위치<br>
+          2. 앱 접속 → 내 스케줄 확인<br>
+          3. <strong>출근 버튼</strong> 클릭
+        </p>
+      </div>
+      
+      <!-- 지각 안내 -->
+      <div style="background-color:#fff3e0;border:1px solid #ffcc80;border-radius:8px;padding:14px;margin-bottom:20px;">
+        <p style="margin:0;font-size:12px;color:#e65100;line-height:1.6;">
+          ⚠️ 출근 시간 이후에 버튼을 누르면 <strong>다음 30분 단위로 올림 처리</strong>됩니다.<br>
+          예) 17:05 → 17:30 기록
+        </p>
+      </div>
+      
+      <p style="font-size:13px;color:#999;margin:0;">
+        오늘도 파이팅입니다! 💪
+      </p>
+    </div>
+    
+    <!-- Footer -->
+    <div style="background-color:#f5f5f5;padding:16px 20px;text-align:center;border-top:1px solid #eee;">
+      <p style="margin:0;font-size:11px;color:#aaa;">
+        이 메일은 대한한우숯불구이 알바 스케줄 시스템에서 자동 발송되었습니다.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [to],
+      subject,
+      html,
+    });
+    return { success: true, id: result.data?.id };
+  } catch (error) {
+    console.error("[Email] Failed to send check-in now reminder:", error);
     return { success: false, error: String(error) };
   }
 }
@@ -122,7 +246,6 @@ export async function sendShiftReminderEmail({
  */
 export async function testResendConnection(): Promise<boolean> {
   try {
-    // API 키가 있는지만 확인 (실제 발송 없이)
     return !!process.env.RESEND_API_KEY;
   } catch {
     return false;

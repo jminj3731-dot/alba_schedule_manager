@@ -1,18 +1,21 @@
 /**
  * 이메일 알림 스케줄러
- * 매 5분마다 실행하여 1시간 후 근무 시작 예정인 알바생에게 이메일 발송
+ * 매 5분마다 실행:
+ *   1) 출근 1시간 전 (55~65분 전): "오늘 근무 1시간 전입니다" 알림
+ *   2) 출근 시간 정각 (0~10분 전): "지금 출근 버튼을 눌러주세요!" 알림
  */
-import { getSchedulesByDateRange, getAllWorkers } from "./db";
-import { sendShiftReminderEmail } from "./email";
+import { getSchedulesByDateRange, getAllWorkers, getDb, resetDbConnection } from "./db";
+import { sendShiftReminderEmail, sendCheckInNowEmail } from "./email";
 
 // 이미 발송된 알림 추적 (메모리 캐시, 서버 재시작 시 초기화)
-// key: `${scheduleDate}_${timeSlot}_${workerId}`
+// key 형식:
+//   `1h_${scheduleDate}_${timeSlot}_${workerId}`  → 1시간 전 알림
+//   `now_${scheduleDate}_${timeSlot}_${workerId}` → 출근 시간 정각 알림
 const sentNotifications = new Set<string>();
 
 // 한국 시간 기준 현재 날짜/시간 반환
 function getKSTNow(): Date {
   const now = new Date();
-  // UTC+9
   return new Date(now.getTime() + 9 * 60 * 60 * 1000);
 }
 
@@ -27,14 +30,13 @@ function getKSTTimeString(): string {
   return `${h}:${m}`;
 }
 
-// 기본 타임별 출근 시간
+// 기본 타임별 출근/퇴근 시간
 const DEFAULT_START_TIMES: Record<string, string> = {
   a: "17:00",
   b: "18:00",
   c: "18:00",
 };
 
-// 기본 타임별 퇴근 시간
 const DEFAULT_END_TIMES: Record<string, string> = {
   a: "22:00",
   b: "22:00",
@@ -43,7 +45,7 @@ const DEFAULT_END_TIMES: Record<string, string> = {
 
 /**
  * 두 시간 문자열(HH:MM) 사이의 분 차이 계산
- * timeA - timeB (분 단위)
+ * timeA - timeB (분 단위, 양수 = timeA가 더 늦음)
  */
 function minutesDiff(timeA: string, timeB: string): number {
   const [ah, am] = timeA.split(":").map(Number);
@@ -52,9 +54,28 @@ function minutesDiff(timeA: string, timeB: string): number {
 }
 
 /**
+ * DB 연결 상태 확인 및 재연결 시도
+ */
+async function ensureDbConnection(): Promise<boolean> {
+  try {
+    const db = await getDb();
+    return !!db;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 스케줄 확인 및 이메일 발송 메인 함수
  */
 export async function checkAndSendShiftReminders(): Promise<void> {
+  // DB 연결 확인
+  const dbOk = await ensureDbConnection();
+  if (!dbOk) {
+    console.warn("[EmailScheduler] DB not available, skipping check");
+    return;
+  }
+
   try {
     const today = getKSTDateString();
     const currentTime = getKSTTimeString();
@@ -66,7 +87,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
     const schedule = todaySchedules[0];
     if (!schedule.isOperating) return;
 
-    // 모든 알바생 조회 (이메일 있는 알바생만 처리)
+    // 모든 알바생 조회
     const allWorkers = await getAllWorkers();
     const workerMap = new Map(allWorkers.map(w => [w.id, w]));
 
@@ -83,46 +104,66 @@ export async function checkAndSendShiftReminders(): Promise<void> {
       const worker = workerMap.get(workerId);
       if (!worker || !worker.email) continue;
 
-      // 출근 시간 결정 (스케줄에 저장된 값 또는 기본값)
+      // 출근/퇴근 시간 결정
       const startTimeKey = `${slot}TimeStartTime` as keyof typeof schedule;
       const endTimeKey = `${slot}TimeEndTime` as keyof typeof schedule;
       const startTime = (schedule[startTimeKey] as string) || DEFAULT_START_TIMES[slot];
       const endTime = (schedule[endTimeKey] as string) || DEFAULT_END_TIMES[slot];
 
-      // 이미 출근 기록이 있으면 스킵
+      // 이미 출근 기록이 있으면 두 알림 모두 스킵
       const actualStartKey = `${slot}TimeActualStartTime` as keyof typeof schedule;
       if (schedule[actualStartKey]) continue;
 
-      // 현재 시간과 출근 시간의 차이 계산
+      // 현재 시간과 출근 시간의 차이 (양수 = 출근 시간까지 남은 분)
       const diff = minutesDiff(startTime, currentTime);
 
-      // 55~65분 사이 (1시간 전 ±5분 윈도우)
-      if (diff < 55 || diff > 65) continue;
+      // ── 1시간 전 알림 (55~65분 전) ──
+      const key1h = `1h_${today}_${slot}_${workerId}`;
+      if (diff >= 55 && diff <= 65 && !sentNotifications.has(key1h)) {
+        console.log(`[EmailScheduler] Sending 1h reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${startTime}`);
+        const result = await sendShiftReminderEmail({
+          to: worker.email,
+          workerName: worker.name,
+          scheduleDate: today,
+          timeSlot: slot.toUpperCase() as "A" | "B" | "C",
+          startTime,
+          endTime,
+        });
+        if (result.success) {
+          sentNotifications.add(key1h);
+          console.log(`[EmailScheduler] ✅ 1h reminder sent to ${worker.name}, id: ${result.id}`);
+        } else {
+          console.error(`[EmailScheduler] ❌ 1h reminder failed for ${worker.name}: ${result.error}`);
+        }
+      }
 
-      // 중복 발송 방지
-      const notifKey = `${today}_${slot}_${workerId}`;
-      if (sentNotifications.has(notifKey)) continue;
-
-      // 이메일 발송
-      console.log(`[EmailScheduler] Sending reminder to ${worker.name} (${worker.email}) for ${slot.toUpperCase()}타임 at ${startTime}`);
-      const result = await sendShiftReminderEmail({
-        to: worker.email,
-        workerName: worker.name,
-        scheduleDate: today,
-        timeSlot: slot.toUpperCase() as "A" | "B" | "C",
-        startTime,
-        endTime,
-      });
-
-      if (result.success) {
-        sentNotifications.add(notifKey);
-        console.log(`[EmailScheduler] ✅ Sent to ${worker.name} (${worker.email}), id: ${result.id}`);
-      } else {
-        console.error(`[EmailScheduler] ❌ Failed to send to ${worker.name}: ${result.error}`);
+      // ── 출근 시간 정각 알림 (0~10분 전) ──
+      const keyNow = `now_${today}_${slot}_${workerId}`;
+      if (diff >= 0 && diff <= 10 && !sentNotifications.has(keyNow)) {
+        console.log(`[EmailScheduler] Sending check-in now reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${startTime}`);
+        const result = await sendCheckInNowEmail({
+          to: worker.email,
+          workerName: worker.name,
+          scheduleDate: today,
+          timeSlot: slot.toUpperCase() as "A" | "B" | "C",
+          startTime,
+          endTime,
+        });
+        if (result.success) {
+          sentNotifications.add(keyNow);
+          console.log(`[EmailScheduler] ✅ Check-in now reminder sent to ${worker.name}, id: ${result.id}`);
+        } else {
+          console.error(`[EmailScheduler] ❌ Check-in now reminder failed for ${worker.name}: ${result.error}`);
+        }
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("[EmailScheduler] Error:", error);
+    // ECONNRESET 등 DB 연결 오류 시 다음 실행에서 재연결 시도
+    if (error?.cause?.code === "ECONNRESET" || String(error).includes("ECONNRESET")) {
+      console.log("[EmailScheduler] ECONNRESET detected, resetting DB connection for next run");
+      resetDbConnection();
+    }
   }
 }
 
@@ -136,6 +177,7 @@ export function startEmailScheduler(): void {
   }
 
   console.log("[EmailScheduler] Starting email reminder scheduler (every 5 minutes)");
+  console.log("[EmailScheduler] Alerts: 1h before shift + at shift start time");
 
   // 즉시 한 번 실행
   checkAndSendShiftReminders().catch(console.error);

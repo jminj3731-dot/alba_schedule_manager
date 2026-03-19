@@ -5,6 +5,11 @@ import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+/** DB 연결을 강제로 다시 생성 (ECONNRESET 등 연결 끊김 시 호출) */
+export function resetDbConnection() {
+  _db = null;
+}
+
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
