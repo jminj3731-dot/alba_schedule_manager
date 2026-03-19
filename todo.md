@@ -212,3 +212,14 @@
 - [x] 중복 발송 방지 키 분리 (1h_ vs now_ 접두사)
 - [x] ECONNRESET 시 DB 재연결 처리 추가
 - [x] 82개 테스트 통과
+
+## v24 구글 시트 내보내기
+- [x] GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY 환경변수 설정
+- [x] GOOGLE_SHEET_ID 환경변수 설정
+- [x] googleapis npm 패키지 설치
+- [x] server/googleSheets.ts - 구글 시트 API 연동 및 데이터 내보내기 함수 구현
+- [x] routers.ts에 exportToGoogleSheets tRPC 프로시저 추가
+- [x] Settings.tsx에 구글 시트 내보내기 카드 UI 추가 (내보내기 버튼 + 성공/실패 피드백 + 시트 열기 링크)
+- [x] 시트 구성: 알바생 목록 / 스케줄 / 출퇴근 기록 / 급여 계산 (4개 탭)
+- [x] 덮어쓰기 방식으로 항상 최신 데이터 유지
+- [x] 91개 테스트 통과

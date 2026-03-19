@@ -6,6 +6,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { sendShiftReminderEmail } from "./email";
 import { checkAndSendShiftReminders } from "./emailScheduler";
+import { exportToGoogleSheets, testGoogleSheetsConnection } from "./googleSheets";
 import {
   getAllWorkers,
   getWorkerById,
@@ -389,6 +390,19 @@ export const appRouter = router({
       }),
   }),
 
+  googleSheets: router({
+    /** 구글 시트로 전체 데이터 내보내기 */
+    export: protectedProcedure
+      .mutation(async () => {
+        return exportToGoogleSheets();
+      }),
+    /** 구글 시트 연결 상태 확인 */
+    testConnection: protectedProcedure
+      .query(async () => {
+        const connected = await testGoogleSheetsConnection();
+        return { connected };
+      }),
+  }),
   email: router({
     /** 수동으로 특정 알바생에게 시프트 알림 이메일 발송 (테스트용) */
     sendTestReminder: publicProcedure

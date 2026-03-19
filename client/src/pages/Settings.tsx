@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Sheet, ExternalLink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -290,6 +290,9 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        {/* Google Sheets Export Card */}
+        <GoogleSheetsExportCard />
+
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-md bg-card border-border">
@@ -421,6 +424,79 @@ export default function Settings() {
         </Dialog>
       </div>
     </AppLayout>
+  );
+}
+
+function GoogleSheetsExportCard() {
+  const [lastResult, setLastResult] = useState<{ success: boolean; message: string; sheetUrl?: string } | null>(null);
+
+  const exportMutation = trpc.googleSheets.export.useMutation({
+    onSuccess: (data) => {
+      setLastResult(data);
+      if (data.success) {
+        toast.success("구글 시트 내보내기 완료!");
+      } else {
+        toast.error(data.message);
+      }
+    },
+    onError: (err) => {
+      toast.error("내보내기 실패: " + err.message);
+    },
+  });
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Sheet className="w-4 h-4 text-green-500" />
+          구글 시트 내보내기
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          알바생 목록, 스케줄, 출퇴근 기록, 급여 계산 데이터를 구글 시트에 내보냅니다.<br />
+          버튼을 누를 때마다 최신 데이터로 덮어쓰기됩니다.
+        </p>
+
+        {lastResult && (
+          <div className={`flex items-start gap-2 p-3 rounded-lg text-xs ${
+            lastResult.success
+              ? "bg-green-500/10 border border-green-500/20 text-green-400"
+              : "bg-red-500/10 border border-red-500/20 text-red-400"
+          }`}>
+            {lastResult.success
+              ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+              : <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+            <div className="flex-1">
+              <p className="whitespace-pre-line">{lastResult.message}</p>
+              {lastResult.sheetUrl && (
+                <a
+                  href={lastResult.sheetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-1.5 text-green-400 hover:text-green-300 underline"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  구글 시트 열기
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        <Button
+          onClick={() => exportMutation.mutate()}
+          disabled={exportMutation.isPending}
+          className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
+        >
+          {exportMutation.isPending ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> 내보내는 중...</>
+          ) : (
+            <><Sheet className="w-4 h-4" /> 구글 시트로 내보내기</>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
