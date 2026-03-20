@@ -2,8 +2,8 @@
  * 이메일 알림 스케줄러
  * 매 5분마다 실행:
  *   1) 출근 1시간 전 (55~65분 전): "오늘 근무 1시간 전입니다" 알림
- *   2) 출근 시간 정각 (0~10분 전): "지금 출근 버튼을 눈러주세요!" 알림
- *   3) 퇴근 시간 정각 (0~10분 전): "퇴근 버튼을 눈러주세요!" 알림
+ *   2) 출근 시간 정각 (0~2분 전): "지금 출근 버튼을 눈러주세요!" 알림 (단 한 번)
+ *   3) 퇴근 10분 전 (8~10분 전): "퇴근 버튼을 눈러주세요!" 알림
  */
 import { getSchedulesByDateRange, getAllWorkers, getDb, resetDbConnection } from "./db";
 import { sendShiftReminderEmail, sendCheckInNowEmail, sendCheckOutNowEmail } from "./email";
@@ -139,9 +139,9 @@ export async function checkAndSendShiftReminders(): Promise<void> {
         }
       }
 
-      // ── 출근 시간 정각 알림 (0~10분 전) ──
+      // ── 출근 시간 정각 알림 (0~2분 전, 단 한 번) ──
       const keyNow = `now_${today}_${slot}_${workerId}`;
-      if (diff >= 0 && diff <= 10 && !sentNotifications.has(keyNow)) {
+      if (diff >= 0 && diff <= 2 && !sentNotifications.has(keyNow)) {
         console.log(`[EmailScheduler] Sending check-in now reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${startTime}`);
         const result = await sendCheckInNowEmail({
           to: worker.email,
@@ -159,13 +159,13 @@ export async function checkAndSendShiftReminders(): Promise<void> {
         }
       }
 
-      // ── 퇴근 시간 알림 (0~10분 전) ──
+      // ── 퇴근 10분 전 알림 (8~10분 전) ──
       // 이미 퇴근 버튼을 눌렀으면 스킵
       const actualEndKey = `${slot}TimeActualEndTime` as keyof typeof schedule;
       if (!schedule[actualEndKey]) {
         const endDiff = minutesDiff(endTime, currentTime); // 퇴근시간 - 현재시간 (양수 = 남은 분)
         const keyCheckout = `checkout_${today}_${slot}_${workerId}`;
-        if (endDiff >= 0 && endDiff <= 10 && !sentNotifications.has(keyCheckout)) {
+        if (endDiff >= 8 && endDiff <= 10 && !sentNotifications.has(keyCheckout)) {
           console.log(`[EmailScheduler] Sending check-out reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${endTime}`);
           const result = await sendCheckOutNowEmail({
             to: worker.email,

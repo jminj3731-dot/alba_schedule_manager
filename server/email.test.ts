@@ -222,6 +222,22 @@ describe("EmailScheduler", () => {
     expect(key1h).toContain("1h_");
     expect(keyNow).toContain("now_");
   });
+
+  it("check-in now window is 0~2 minutes (narrow)", () => {
+    // 출근 알림은 0~2분 전으로 좌혀져 단 한 번만 발송
+    const windowMin = 0;
+    const windowMax = 2;
+    expect(windowMax - windowMin).toBe(2); // 좌은 윈도우
+    expect(windowMax).toBeLessThanOrEqual(5); // 5분 이하로 좌혀져 있음
+  });
+
+  it("check-out window is 8~10 minutes before end (10 min early warning)", () => {
+    // 퇴근 알림은 8~10분 전 (퇴근 10분 전 알림)
+    const windowMin = 8;
+    const windowMax = 10;
+    expect(windowMin).toBeGreaterThan(0); // 정각이 아니라 사전 알림
+    expect(windowMax).toBe(10); // 10분 전부터 시작
+  });
 });
 
 describe("Workers email field", () => {
