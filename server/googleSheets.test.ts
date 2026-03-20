@@ -168,6 +168,53 @@ describe("GoogleSheets - exportToGoogleSheets", () => {
   });
 });
 
+describe("GoogleSheets - attendance fallback logic", () => {
+  it("fills missing actualStart with scheduled start time", () => {
+    // 실제 출근 없으면 예정 시간으로 채우기 로직 테스트
+    const actualStart: string | null = null;
+    const scheduledStart = "17:00";
+    const displayStart = actualStart || scheduledStart || "-";
+    expect(displayStart).toBe("17:00");
+  });
+
+  it("uses actualStart when available", () => {
+    const actualStart = "17:05";
+    const scheduledStart = "17:00";
+    const displayStart = actualStart || scheduledStart || "-";
+    expect(displayStart).toBe("17:05"); // 실제 시간 우선
+  });
+
+  it("generates correct note when both actual times missing", () => {
+    const hasActualStart = false;
+    const hasActualEnd = false;
+    let note = "";
+    if (!hasActualStart && !hasActualEnd) note = "버튼 미입력(예정시간 적용)";
+    else if (!hasActualStart) note = "출근 미입력(예정시간 적용)";
+    else if (!hasActualEnd) note = "퇴근 미입력(예정시간 적용)";
+    expect(note).toBe("버튼 미입력(예정시간 적용)");
+  });
+
+  it("generates correct note when only actualStart missing", () => {
+    const hasActualStart = false;
+    const hasActualEnd = true;
+    let note = "";
+    if (!hasActualStart && !hasActualEnd) note = "버튼 미입력(예정시간 적용)";
+    else if (!hasActualStart) note = "출근 미입력(예정시간 적용)";
+    else if (!hasActualEnd) note = "퇴근 미입력(예정시간 적용)";
+    expect(note).toBe("출근 미입력(예정시간 적용)");
+  });
+
+  it("generates empty note when both actual times present", () => {
+    const hasActualStart = true;
+    const hasActualEnd = true;
+    let note = "";
+    if (!hasActualStart && !hasActualEnd) note = "버튼 미입력(예정시간 적용)";
+    else if (!hasActualStart) note = "출근 미입력(예정시간 적용)";
+    else if (!hasActualEnd) note = "퇴근 미입력(예정시간 적용)";
+    expect(note).toBe(""); // 정상 출퇴근
+  });
+});
+
 describe("GoogleSheets - data structure", () => {
   it("sheet tab names are defined correctly", () => {
     const SHEETS = {

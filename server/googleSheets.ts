@@ -178,35 +178,60 @@ export async function exportToGoogleSheets(): Promise<{
     await overwriteSheet(sheets, spreadsheetId, SHEETS.WORKERS, workerRows);
     await boldHeader(sheets, spreadsheetId, workerSheetId, 8);
 
-    // ── 2. 스케줄 탭 ──
+    // ── 2. 스케줄 탭 ── (가독성 개선: 타임별로 행 분리)
     const scheduleSheetId = await ensureSheetTab(sheets, spreadsheetId, SHEETS.SCHEDULES);
     const workerMap = new Map(workers.map((w) => [w.id, w.name]));
     const scheduleRows: (string | number | null)[][] = [
-      ["날짜", "요일", "운영여부", "A타임 담당", "A타임 출근", "A타임 퇴근", "B타임 담당", "B타임 출근", "B타임 퇴근", "C타임 담당", "C타임 출근", "C타임 퇴근"],
-      ...schedules.map((s) => [
-        s.scheduleDate,
-        s.dayOfWeek,
-        s.isOperating ? "운영" : "휴무",
-        s.aTimeWorkerId ? (workerMap.get(s.aTimeWorkerId) ?? "-") : "-",
-        s.aTimeStartTime || "-",
-        s.aTimeEndTime || "-",
-        s.bTimeWorkerId ? (workerMap.get(s.bTimeWorkerId) ?? "-") : "-",
-        s.bTimeStartTime || "-",
-        s.bTimeEndTime || "-",
-        s.cTimeWorkerId ? (workerMap.get(s.cTimeWorkerId) ?? "-") : "-",
-        s.cTimeStartTime || "-",
-        s.cTimeEndTime || "-",
-      ]),
-      [],
-      [`마지막 업데이트: ${now}`],
+      ["날짜", "요일", "운영여부", "타임", "담당자", "예정 출근", "예정 퇴근", "실제 출근", "실제 퇴근", "근무시간(h)"],
     ];
-    await overwriteSheet(sheets, spreadsheetId, SHEETS.SCHEDULES, scheduleRows);
-    await boldHeader(sheets, spreadsheetId, scheduleSheetId, 12);
 
-    // ── 3. 출퇴근 기록 탭 ──
+    for (const s of schedules) {
+      const slots = [
+        { slot: "A", workerId: s.aTimeWorkerId, start: s.aTimeStartTime, end: s.aTimeEndTime, actualStart: s.aTimeActualStartTime, actualEnd: s.aTimeActualEndTime },
+        { slot: "B", workerId: s.bTimeWorkerId, start: s.bTimeStartTime, end: s.bTimeEndTime, actualStart: s.bTimeActualStartTime, actualEnd: s.bTimeActualEndTime },
+        { slot: "C", workerId: s.cTimeWorkerId, start: s.cTimeStartTime, end: s.cTimeEndTime, actualStart: s.cTimeActualStartTime, actualEnd: s.cTimeActualEndTime },
+      ];
+
+      if (!s.isOperating) {
+        scheduleRows.push([s.scheduleDate, s.dayOfWeek, "휴무", "-", "-", "-", "-", "-", "-", "-"]);
+        continue;
+      }
+
+      for (const slot of slots) {
+        if (!slot.workerId) continue;
+        const workerName = workerMap.get(slot.workerId) ?? "-";
+        // 근무시간 계산 (실제 우선, 없으면 예정)
+        const effectiveStart = slot.actualStart || slot.start;
+        const effectiveEnd = slot.actualEnd || slot.end;
+        let workHours: number | string = "-";
+        if (effectiveStart && effectiveEnd) {
+          const [sh, sm] = effectiveStart.split(":").map(Number);
+          const [eh, em] = effectiveEnd.split(":").map(Number);
+          const totalMin = (eh * 60 + em) - (sh * 60 + sm);
+          if (totalMin > 0) workHours = Math.round((totalMin / 60) * 100) / 100;
+        }
+        scheduleRows.push([
+          s.scheduleDate,
+          s.dayOfWeek,
+          "운영",
+          `${slot.slot}타임`,
+          workerName,
+          slot.start || "-",
+          slot.end || "-",
+          slot.actualStart || "-",
+          slot.actualEnd || "-",
+          workHours,
+        ]);
+      }
+    }
+    scheduleRows.push([], [`마지막 업데이트: ${now}`]);
+    await overwriteSheet(sheets, spreadsheetId, SHEETS.SCHEDULES, scheduleRows);
+    await boldHeader(sheets, spreadsheetId, scheduleSheetId, 10);
+
+    // ── 3. 출퇴근 기록 탭 ── (실제 출퇴근 없으면 예정 시간으로 채우기)
     const attendanceSheetId = await ensureSheetTab(sheets, spreadsheetId, SHEETS.ATTENDANCE);
     const attendanceRows: (string | number | null)[][] = [
-      ["날짜", "요일", "타임", "이름", "예정 출근", "실제 출근", "예정 퇴근", "실제 퇴근", "근무시간(시간)"],
+      ["날짜", "요일", "타임", "이름", "예정 출근", "실제 출근", "예정 퇴근", "실제 퇴근", "근무시간(h)", "비고"],
     ];
 
     for (const s of schedules) {
@@ -229,17 +254,25 @@ export async function exportToGoogleSheets(): Promise<{
         if (!slot.workerId) continue;
         const workerName = workerMap.get(slot.workerId) ?? "알 수 없음";
 
-        // 근무 시간 계산 (실제 출퇴근 기준, 없으면 예정 기준)
+        // 실제 출퇴근 없으면 예정 시간으로 채우기
+        const displayStart = slot.actualStart || slot.start || "-";
+        const displayEnd = slot.actualEnd || slot.end || "-";
+
+        // 비고: 출퇴근 버튼 누름 여부 표시
+        const hasActualStart = !!slot.actualStart;
+        const hasActualEnd = !!slot.actualEnd;
+        let note = "";
+        if (!hasActualStart && !hasActualEnd) note = "버튼 미입력(예정시간 적용)";
+        else if (!hasActualStart) note = "출근 미입력(예정시간 적용)";
+        else if (!hasActualEnd) note = "퇴근 미입력(예정시간 적용)";
+
+        // 근무 시간 계산 (실제 우선, 없으면 예정)
         let workHours: number | string = "-";
-        const startStr = slot.actualStart || slot.start;
-        const endStr = slot.actualEnd || slot.end;
-        if (startStr && endStr) {
-          const [sh, sm] = startStr.split(":").map(Number);
-          const [eh, em] = endStr.split(":").map(Number);
+        if (displayStart !== "-" && displayEnd !== "-") {
+          const [sh, sm] = displayStart.split(":").map(Number);
+          const [eh, em] = displayEnd.split(":").map(Number);
           const totalMin = (eh * 60 + em) - (sh * 60 + sm);
-          if (totalMin > 0) {
-            workHours = Math.round((totalMin / 60) * 100) / 100; // 소수점 2자리
-          }
+          if (totalMin > 0) workHours = Math.round((totalMin / 60) * 100) / 100;
         }
 
         attendanceRows.push([
@@ -248,16 +281,17 @@ export async function exportToGoogleSheets(): Promise<{
           `${slot.slot}타임`,
           workerName,
           slot.start || "-",
-          slot.actualStart || "-",
+          displayStart,
           slot.end || "-",
-          slot.actualEnd || "-",
+          displayEnd,
           workHours,
+          note,
         ]);
       }
     }
     attendanceRows.push([], [`마지막 업데이트: ${now}`]);
     await overwriteSheet(sheets, spreadsheetId, SHEETS.ATTENDANCE, attendanceRows);
-    await boldHeader(sheets, spreadsheetId, attendanceSheetId, 9);
+    await boldHeader(sheets, spreadsheetId, attendanceSheetId, 10);
 
     // ── 4. 급여 계산 탭 ──
     const salarySheetId = await ensureSheetTab(sheets, spreadsheetId, SHEETS.SALARY);
