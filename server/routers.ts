@@ -4,7 +4,7 @@ import { notifyOwner } from "./_core/notification";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { sendShiftReminderEmail } from "./email";
+import { sendShiftReminderEmail, sendCheckOutNotifyToAdmin } from "./email";
 import { checkAndSendShiftReminders } from "./emailScheduler";
 import { exportToGoogleSheets, testGoogleSheetsConnection } from "./googleSheets";
 import { getLastSyncInfo } from "./googleSheetsScheduler";
@@ -186,12 +186,32 @@ export const appRouter = router({
         actualEndTime: z.string(),   // 실제 입력 시간
       }))
       .mutation(async ({ input }) => {
-        return updateScheduleEndTime({
+        const result = await updateScheduleEndTime({
           scheduleDate: input.scheduleDate,
           timeSlot: input.timeSlot,
           endTime: input.endTime,
           actualEndTime: input.actualEndTime,
         });
+        // 관리자에게 퇴근 완료 이메일 발송
+        if (result?.workerName && result?.scheduledEndTime) {
+          const adminEmail = process.env.ADMIN_EMAIL;
+          if (adminEmail) {
+            await sendCheckOutNotifyToAdmin({
+              to: adminEmail,
+              workerName: result.workerName,
+              scheduleDate: input.scheduleDate,
+              timeSlot: input.timeSlot.toUpperCase() as "A" | "B" | "C",
+              scheduledEndTime: result.scheduledEndTime,
+              actualEndTime: input.actualEndTime,
+            }).catch(() => {}); // 이메일 실패해도 퇴근 처리는 성공
+          }
+          // 앱 알림도 발송
+          await notifyOwner({
+            title: `${result.workerName}님이 퇴근했습니다`,
+            content: `🏁 ${input.scheduleDate} ${input.timeSlot.toUpperCase()}타임\n⏰ 실제 퇴근: ${input.actualEndTime} → 기록: ${input.endTime}`,
+          }).catch(() => {});
+        }
+        return result;
       }),
 
     weeklyWorkerCounts: publicProcedure

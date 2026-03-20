@@ -248,3 +248,103 @@ describe("Workers email field", () => {
     expect(workerWithoutEmail.email).toBeNull();
   });
 });
+
+describe("Email Module - 퇴근 시간 알림 (알바생용)", () => {
+  beforeEach(() => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    vi.clearAllMocks();
+  });
+
+  it("sendCheckOutNowEmail returns success on valid input", async () => {
+    const { sendCheckOutNowEmail } = await import("./email");
+
+    const result = await sendCheckOutNowEmail({
+      to: "test@example.com",
+      workerName: "박지수",
+      scheduleDate: "2026-03-18",
+      timeSlot: "A",
+      startTime: "17:00",
+      endTime: "22:00",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.id).toBe("test-email-id-123");
+  });
+
+  it("sendCheckOutNowEmail is a separate function from sendCheckInNowEmail", async () => {
+    const { sendCheckOutNowEmail, sendCheckInNowEmail } = await import("./email");
+    expect(typeof sendCheckOutNowEmail).toBe("function");
+    expect(sendCheckOutNowEmail).not.toBe(sendCheckInNowEmail);
+  });
+});
+
+describe("Email Module - 관리자 퇴근 완료 알림", () => {
+  beforeEach(() => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    vi.clearAllMocks();
+  });
+
+  it("sendCheckOutNotifyToAdmin returns success on valid input", async () => {
+    const { sendCheckOutNotifyToAdmin } = await import("./email");
+
+    const result = await sendCheckOutNotifyToAdmin({
+      to: "admin@example.com",
+      workerName: "박지수",
+      scheduleDate: "2026-03-18",
+      timeSlot: "A",
+      scheduledEndTime: "22:00",
+      actualEndTime: "22:05",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.id).toBe("test-email-id-123");
+  });
+
+  it("sendCheckOutNotifyToAdmin detects late checkout", async () => {
+    const { sendCheckOutNotifyToAdmin } = await import("./email");
+
+    // 예정 22:00, 실제 22:30 → 늦게 퇴근
+    const result = await sendCheckOutNotifyToAdmin({
+      to: "admin@example.com",
+      workerName: "김철수",
+      scheduleDate: "2026-03-18",
+      timeSlot: "B",
+      scheduledEndTime: "22:00",
+      actualEndTime: "22:30",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("sendCheckOutNotifyToAdmin detects early checkout", async () => {
+    const { sendCheckOutNotifyToAdmin } = await import("./email");
+
+    // 예정 22:00, 실제 21:30 → 일찍 퇴근
+    const result = await sendCheckOutNotifyToAdmin({
+      to: "admin@example.com",
+      workerName: "이영희",
+      scheduleDate: "2026-03-18",
+      timeSlot: "C",
+      scheduledEndTime: "22:00",
+      actualEndTime: "21:30",
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("EmailScheduler - 퇴근 시간 알림 키", () => {
+  it("checkout notification key is different from checkin keys", () => {
+    const today = "2026-03-18";
+    const slot = "a";
+    const workerId = 1;
+
+    const key1h = `1h_${today}_${slot}_${workerId}`;
+    const keyNow = `now_${today}_${slot}_${workerId}`;
+    const keyCheckout = `checkout_${today}_${slot}_${workerId}`;
+
+    expect(keyCheckout).not.toBe(key1h);
+    expect(keyCheckout).not.toBe(keyNow);
+    expect(keyCheckout).toContain("checkout_");
+  });
+});

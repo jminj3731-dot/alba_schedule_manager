@@ -261,3 +261,13 @@
 - [x] Settings.tsx 구글 시트 카드에 정산 기간 선택 UI 추가 (급여일 기준 / 직접 입력 토글)
 - [x] routers.ts export 프로시저에 날짜 파라미터 추가
 - [x] 119개 테스트 통과
+
+## v30 퇴근 알림 이메일 추가
+- [x] server/email.ts - 퇴근 예정 시간 알림 이메일 템플릿 추가 (알바생용, 네이비 디자인)
+- [x] server/email.ts - 관리자용 퇴근 완료 알림 이메일 템플릿 추가 (정시/늘게/일싵 퇴근 상태 구분)
+- [x] server/emailScheduler.ts - 퇴근 예정 0~10분 전 알바생에게 "퇴근 버튼 눈러주세요" 이메일 발송
+- [x] server/db.ts updateScheduleEndTime - workerName 및 scheduledEndTime 반환 추가
+- [x] server/routers.ts checkOut - 퇴근 버튼 클릭 시 관리자 이메일 + 앱 알림 동시 발송
+- [x] ADMIN_EMAIL 환경변수 설정
+- [x] 중복 발송 방지 키 추가 (checkout_ 접두사)
+- [x] 125개 테스트 통과

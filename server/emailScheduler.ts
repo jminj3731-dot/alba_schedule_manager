@@ -2,15 +2,17 @@
  * 이메일 알림 스케줄러
  * 매 5분마다 실행:
  *   1) 출근 1시간 전 (55~65분 전): "오늘 근무 1시간 전입니다" 알림
- *   2) 출근 시간 정각 (0~10분 전): "지금 출근 버튼을 눌러주세요!" 알림
+ *   2) 출근 시간 정각 (0~10분 전): "지금 출근 버튼을 눈러주세요!" 알림
+ *   3) 퇴근 시간 정각 (0~10분 전): "퇴근 버튼을 눈러주세요!" 알림
  */
 import { getSchedulesByDateRange, getAllWorkers, getDb, resetDbConnection } from "./db";
-import { sendShiftReminderEmail, sendCheckInNowEmail } from "./email";
+import { sendShiftReminderEmail, sendCheckInNowEmail, sendCheckOutNowEmail } from "./email";
 
 // 이미 발송된 알림 추적 (메모리 캐시, 서버 재시작 시 초기화)
 // key 형식:
-//   `1h_${scheduleDate}_${timeSlot}_${workerId}`  → 1시간 전 알림
-//   `now_${scheduleDate}_${timeSlot}_${workerId}` → 출근 시간 정각 알림
+//   `1h_${scheduleDate}_${timeSlot}_${workerId}`       → 1시간 전 알림
+//   `now_${scheduleDate}_${timeSlot}_${workerId}`      → 출근 시간 정각 알림
+//   `checkout_${scheduleDate}_${timeSlot}_${workerId}` → 퇴근 시간 알림
 const sentNotifications = new Set<string>();
 
 // 한국 시간 기준 현재 날짜/시간 반환
@@ -156,6 +158,31 @@ export async function checkAndSendShiftReminders(): Promise<void> {
           console.error(`[EmailScheduler] ❌ Check-in now reminder failed for ${worker.name}: ${result.error}`);
         }
       }
+
+      // ── 퇴근 시간 알림 (0~10분 전) ──
+      // 이미 퇴근 버튼을 눌렀으면 스킵
+      const actualEndKey = `${slot}TimeActualEndTime` as keyof typeof schedule;
+      if (!schedule[actualEndKey]) {
+        const endDiff = minutesDiff(endTime, currentTime); // 퇴근시간 - 현재시간 (양수 = 남은 분)
+        const keyCheckout = `checkout_${today}_${slot}_${workerId}`;
+        if (endDiff >= 0 && endDiff <= 10 && !sentNotifications.has(keyCheckout)) {
+          console.log(`[EmailScheduler] Sending check-out reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${endTime}`);
+          const result = await sendCheckOutNowEmail({
+            to: worker.email,
+            workerName: worker.name,
+            scheduleDate: today,
+            timeSlot: slot.toUpperCase() as "A" | "B" | "C",
+            startTime,
+            endTime,
+          });
+          if (result.success) {
+            sentNotifications.add(keyCheckout);
+            console.log(`[EmailScheduler] ✅ Check-out reminder sent to ${worker.name}, id: ${result.id}`);
+          } else {
+            console.error(`[EmailScheduler] ❌ Check-out reminder failed for ${worker.name}: ${result.error}`);
+          }
+        }
+      }
     }
   } catch (error: any) {
     console.error("[EmailScheduler] Error:", error);
@@ -177,7 +204,7 @@ export function startEmailScheduler(): void {
   }
 
   console.log("[EmailScheduler] Starting email reminder scheduler (every 5 minutes)");
-  console.log("[EmailScheduler] Alerts: 1h before shift + at shift start time");
+  console.log("[EmailScheduler] Alerts: 1h before shift + at shift start time + at shift end time");
 
   // 즉시 한 번 실행
   checkAndSendShiftReminders().catch(console.error);

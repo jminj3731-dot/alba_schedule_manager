@@ -254,7 +254,27 @@ export async function updateScheduleEndTime(data: {
     { cTimeEndTime: data.endTime, cTimeActualEndTime: data.actualEndTime || data.endTime };
 
   await db.update(schedules).set(updateField).where(eq(schedules.id, existing.id));
-  return { success: true };
+
+  // 알림용 workerName 및 scheduledEndTime 조회
+  let workerName: string | null = null;
+  let scheduledEndTime: string | null = null;
+  try {
+    const workerId =
+      data.timeSlot === "a" ? existing.aTimeWorkerId
+      : data.timeSlot === "b" ? existing.bTimeWorkerId
+      : existing.cTimeWorkerId;
+    if (workerId) {
+      const w = await getWorkerById(workerId);
+      workerName = w?.name ?? null;
+    }
+    // 예정 퇴근 시간 (수정 전 기존값)
+    scheduledEndTime =
+      data.timeSlot === "a" ? existing.aTimeEndTime
+      : data.timeSlot === "b" ? existing.bTimeEndTime
+      : existing.cTimeEndTime;
+  } catch {}
+
+  return { success: true, workerName, scheduledEndTime };
 }
 
 export async function updateScheduleTime(data: {
