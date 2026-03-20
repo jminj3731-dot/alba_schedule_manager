@@ -394,8 +394,12 @@ export const appRouter = router({
   googleSheets: router({
     /** 구글 시트로 전체 데이터 내보내기 */
     export: protectedProcedure
-      .mutation(async () => {
-        return exportToGoogleSheets();
+      .input(z.object({
+        startDate: z.string().optional(), // YYYY-MM-DD
+        endDate: z.string().optional(),   // YYYY-MM-DD
+      }).optional())
+      .mutation(async ({ input }) => {
+        return exportToGoogleSheets(input || {});
       }),
     /** 구글 시트 연결 상태 확인 */
     testConnection: protectedProcedure

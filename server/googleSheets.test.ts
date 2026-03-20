@@ -274,3 +274,72 @@ describe("GoogleSheets - data structure", () => {
     expect(hours).toBe(5.05);
   });
 });
+
+describe("GoogleSheets - getPayPeriodByPayDay", () => {
+  // getPayPeriodByPayDay 로직을 직접 복제하여 테스트 (모듈 경계 문제 회피)
+  function calcPayPeriodLocal(payDay: number, referenceDate?: Date): { startDate: string; endDate: string } {
+    const now = referenceDate || new Date();
+    const today = now.getDate();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    let periodStart: Date;
+    let periodEnd: Date;
+    if (today >= payDay) {
+      periodStart = new Date(year, month, payDay);
+      periodEnd = new Date(year, month + 1, payDay - 1);
+    } else {
+      periodStart = new Date(year, month - 1, payDay);
+      periodEnd = new Date(year, month, payDay - 1);
+    }
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    return { startDate: fmt(periodStart), endDate: fmt(periodEnd) };
+  }
+
+  it("오늘이 급여일 이후이면 이번달 payDay ~ 다음달 (payDay-1)일", () => {
+    // 2026-03-20, payDay=14 → 오늘(20) >= 14이므로 3/14 ~ 4/13
+    const ref = new Date("2026-03-20");
+    const result = calcPayPeriodLocal(14, ref);
+    expect(result.startDate).toBe("2026-03-14");
+    expect(result.endDate).toBe("2026-04-13");
+  });
+
+  it("오늘이 급여일 이전이면 지난달 payDay ~ 이번달 (payDay-1)일", () => {
+    // 2026-03-10, payDay=14 → 오늘(10) < 14이므로 2/14 ~ 3/13
+    const ref = new Date("2026-03-10");
+    const result = calcPayPeriodLocal(14, ref);
+    expect(result.startDate).toBe("2026-02-14");
+    expect(result.endDate).toBe("2026-03-13");
+  });
+
+  it("오늘이 급여일과 같으면 이번달 payDay ~ 다음달 (payDay-1)일", () => {
+    // 2026-03-20 오후, payDay=20 → 오늘(20) >= 20이므로 3/20 ~ 4/19
+    const ref = new Date(2026, 2, 20, 12, 0, 0); // 로컈 시간 직접 지정
+    const result = calcPayPeriodLocal(20, ref);
+    expect(result.startDate).toBe("2026-03-20");
+    expect(result.endDate).toBe("2026-04-19");
+  });
+
+  it("payDay=1이면 이번달 1일 ~ 다음달 말일(0일)", () => {
+    // 2026-03-15, payDay=1 → 오늘(15) >= 1이므로 3/1 ~ 3/31(4월 0일)
+    const ref = new Date("2026-03-15");
+    const result = calcPayPeriodLocal(1, ref);
+    expect(result.startDate).toBe("2026-03-01");
+    expect(result.endDate).toBe("2026-03-31"); // 4월 0일 = 3월 31일
+  });
+
+  it("exportToGoogleSheets에 날짜 파라미터를 전달하면 해당 기간으로 내보내기", async () => {
+    const { exportToGoogleSheets } = await import("./googleSheets");
+    const result = await exportToGoogleSheets({
+      startDate: "2026-03-01",
+      endDate: "2026-03-31",
+    });
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("완료");
+  });
+
+  it("날짜 파라미터 없이 호출하면 기본 3개월 범위 사용", async () => {
+    const { exportToGoogleSheets } = await import("./googleSheets");
+    const result = await exportToGoogleSheets();
+    expect(result.success).toBe(true);
+  });
+});

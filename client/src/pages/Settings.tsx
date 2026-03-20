@@ -427,8 +427,46 @@ export default function Settings() {
   );
 }
 
+/** 급여일 기준 정산 기간 계산 (client-side) */
+function calcPayPeriod(payDay: number): { startDate: string; endDate: string } {
+  const now = new Date();
+  const today = now.getDate();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  let periodStart: Date;
+  let periodEnd: Date;
+
+  if (today >= payDay) {
+    periodStart = new Date(year, month, payDay);
+    periodEnd = new Date(year, month + 1, payDay - 1);
+  } else {
+    periodStart = new Date(year, month - 1, payDay);
+    periodEnd = new Date(year, month, payDay - 1);
+  }
+
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  return { startDate: fmt(periodStart), endDate: fmt(periodEnd) };
+}
+
 function GoogleSheetsExportCard() {
   const [lastResult, setLastResult] = useState<{ success: boolean; message: string; sheetUrl?: string } | null>(null);
+  // 정산 기간 모드: "auto" = 급여일 기준 자동, "custom" = 직접 입력
+  const [periodMode, setPeriodMode] = useState<"auto" | "custom">("auto");
+  // 급여일 입력 (auto 모드)
+  const [payDay, setPayDay] = useState<number>(14);
+  // 직접 입력 날짜 (custom 모드)
+  const [customStart, setCustomStart] = useState<string>("");
+  const [customEnd, setCustomEnd] = useState<string>("");
+
+  // 급여일 기준 자동 계산
+  const autoPeriod = calcPayPeriod(payDay);
+
+  const getExportDates = () => {
+    if (periodMode === "auto") return autoPeriod;
+    if (customStart && customEnd) return { startDate: customStart, endDate: customEnd };
+    return {};
+  };
 
   const exportMutation = trpc.googleSheets.export.useMutation({
     onSuccess: (data) => {
@@ -461,6 +499,83 @@ function GoogleSheetsExportCard() {
           알바생 목록, 스케줄, 출퇴근 기록, 급여 계산 데이터를 구글 시트에 내보냅니다.<br />
           버튼을 누를 때마다 최신 데이터로 덮어쓰기되며, <strong>매일 자정(KST 00:00)에 자동으로 동기화</strong>됩니다.
         </p>
+
+        {/* 급여 정산 기간 설정 */}
+        <div className="space-y-2 p-3 rounded-lg bg-muted/20 border border-border/50">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-foreground">급여 정산 기간</span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setPeriodMode("auto")}
+                className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                  periodMode === "auto"
+                    ? "bg-green-600 text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                급여일 기준
+              </button>
+              <button
+                onClick={() => setPeriodMode("custom")}
+                className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                  periodMode === "custom"
+                    ? "bg-green-600 text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                직접 입력
+              </button>
+            </div>
+          </div>
+
+          {periodMode === "auto" ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground w-12 shrink-0">급여일</Label>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={payDay}
+                    onChange={(e) => setPayDay(Math.min(31, Math.max(1, Number(e.target.value))))}
+                    className="w-16 h-7 text-xs"
+                  />
+                  <span className="text-xs text-muted-foreground">일</span>
+                </div>
+              </div>
+              <p className="text-xs text-green-400">
+                정산 기간: {autoPeriod.startDate} ~ {autoPeriod.endDate}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground w-12 shrink-0">시작일</Label>
+                <Input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground w-12 shrink-0">종료일</Label>
+                <Input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="h-7 text-xs"
+                />
+              </div>
+              {customStart && customEnd && (
+                <p className="text-xs text-green-400">
+                  정산 기간: {customStart} ~ {customEnd}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* 자동 동기화 상태 */}
         <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/50">
@@ -511,8 +626,8 @@ function GoogleSheetsExportCard() {
         )}
 
         <Button
-          onClick={() => exportMutation.mutate()}
-          disabled={exportMutation.isPending}
+          onClick={() => exportMutation.mutate(getExportDates())}
+          disabled={exportMutation.isPending || (periodMode === "custom" && (!customStart || !customEnd))}
           className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
         >
           {exportMutation.isPending ? (

@@ -253,3 +253,11 @@
 - [x] Settings 페이지 구글 시트 카드에 자동 동기화 상태 표시 (성공/실패/미실행)
 - [x] 환경변수 미설정 시 스케줄러 자동 스킵
 - [x] 113개 테스트 통과
+
+## v29 구글 시트 급여 정산 기간 직접 지정
+- [x] workers 테이블 payDay 필드 확인 (이미 존재, 기본값 14)
+- [x] googleSheets.ts exportToGoogleSheets에 startDate/endDate 옵션 파라미터 추가
+- [x] googleSheets.ts getPayPeriodByPayDay 함수 추가 (급여일 기준 정산 기간 자동 계산)
+- [x] Settings.tsx 구글 시트 카드에 정산 기간 선택 UI 추가 (급여일 기준 / 직접 입력 토글)
+- [x] routers.ts export 프로시저에 날짜 파라미터 추가
+- [x] 119개 테스트 통과

@@ -118,14 +118,43 @@ async function boldHeader(
   });
 }
 
-/** 날짜 범위 계산: 최근 3개월 */
-function getDateRange(): { startDate: string; endDate: string } {
+/** 날짜 범위 계산: 최근 3개월 (기본값) */
+function getDefaultDateRange(): { startDate: string; endDate: string } {
   const now = new Date();
   const end = now.toISOString().split("T")[0];
   const start = new Date(now.getFullYear(), now.getMonth() - 2, 1)
     .toISOString()
     .split("T")[0];
   return { startDate: start, endDate: end };
+}
+
+/**
+ * 급여일 기준 정산 기간 계산
+ * payDay=14 이면: 전월 14일 ~ 이번달 13일
+ */
+export function getPayPeriodByPayDay(payDay: number, referenceDate?: Date): { startDate: string; endDate: string } {
+  const now = referenceDate || new Date();
+  const today = now.getDate();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-indexed
+
+  let periodStart: Date;
+  let periodEnd: Date;
+
+  if (today >= payDay) {
+    // 오늘이 급여일 이후면: 이번달 payDay ~ 다음달 (payDay-1)일
+    periodStart = new Date(year, month, payDay);
+    periodEnd = new Date(year, month + 1, payDay - 1);
+  } else {
+    // 오늘이 급여일 이전이면: 지난달 payDay ~ 이번달 (payDay-1)일
+    periodStart = new Date(year, month - 1, payDay);
+    periodEnd = new Date(year, month, payDay - 1);
+  }
+
+  return {
+    startDate: periodStart.toISOString().split("T")[0],
+    endDate: periodEnd.toISOString().split("T")[0],
+  };
 }
 
 /** 분 → "HH:MM" 변환 */
@@ -139,7 +168,10 @@ function minutesToHHMM(minutes: number): string {
  * 전체 데이터를 구글 시트에 내보내기
  * 탭 구성: 알바생 목록 / 스케줄 / 출퇴근 기록 / 급여 계산
  */
-export async function exportToGoogleSheets(): Promise<{
+export async function exportToGoogleSheets(options?: {
+  startDate?: string;
+  endDate?: string;
+}): Promise<{
   success: boolean;
   message: string;
   sheetUrl?: string;
@@ -147,7 +179,9 @@ export async function exportToGoogleSheets(): Promise<{
   try {
     const sheets = getSheetsClient();
     const spreadsheetId = SHEET_ID!;
-    const { startDate, endDate } = getDateRange();
+    const defaultRange = getDefaultDateRange();
+    const startDate = options?.startDate || defaultRange.startDate;
+    const endDate = options?.endDate || defaultRange.endDate;
 
     // 데이터 조회
     const [workers, schedules] = await Promise.all([
