@@ -169,19 +169,42 @@ describe("GoogleSheets - exportToGoogleSheets", () => {
 });
 
 describe("GoogleSheets - attendance fallback logic", () => {
-  it("fills missing actualStart with scheduled start time", () => {
-    // 실제 출근 없으면 예정 시간으로 채우기 로직 테스트
+  it("fills missing actualStart with scheduled start time for display", () => {
+    // 표시용 실제 출근 없으면 예정 시간으로 채우기
     const actualStart: string | null = null;
     const scheduledStart = "17:00";
     const displayStart = actualStart || scheduledStart || "-";
     expect(displayStart).toBe("17:00");
   });
 
-  it("uses actualStart when available", () => {
+  it("uses actualStart when available for display", () => {
     const actualStart = "17:05";
     const scheduledStart = "17:00";
     const displayStart = actualStart || scheduledStart || "-";
-    expect(displayStart).toBe("17:05"); // 실제 시간 우선
+    expect(displayStart).toBe("17:05"); // 표시는 실제 시간 우선
+  });
+
+  it("calculates work hours based on scheduled time only (ignores actual times)", () => {
+    // 근무시간 계산은 항상 예정 시간 기준
+    const scheduledStart = "17:00";
+    const scheduledEnd = "22:00";
+    const actualStart = "17:45"; // 늘게 출근해도
+    const actualEnd = "22:30"; // 늘게 퇴근해도
+
+    // 예정 시간으로만 계산
+    const [sh, sm] = scheduledStart.split(":").map(Number);
+    const [eh, em] = scheduledEnd.split(":").map(Number);
+    const workHours = Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60 * 100) / 100;
+    expect(workHours).toBe(5); // 17:00~22:00 = 5시간 (실제 버튼 값과 무관하게)
+
+    // 실제 시간으로 계산하면 다르다
+    const [ash, asm] = actualStart.split(":").map(Number);
+    const [aeh, aem] = actualEnd.split(":").map(Number);
+    const actualWorkHours = Math.round(((aeh * 60 + aem) - (ash * 60 + asm)) / 60 * 100) / 100;
+    expect(actualWorkHours).toBe(4.75); // 17:45~22:30 = 4.75시간
+
+    // 실제 구현에서는 예정 시간을 사용하므로 workHours를 사용해야 함
+    expect(workHours).not.toBe(actualWorkHours);
   });
 
   it("generates correct note when both actual times missing", () => {

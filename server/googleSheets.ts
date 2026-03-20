@@ -200,13 +200,11 @@ export async function exportToGoogleSheets(): Promise<{
       for (const slot of slots) {
         if (!slot.workerId) continue;
         const workerName = workerMap.get(slot.workerId) ?? "-";
-        // 근무시간 계산 (실제 우선, 없으면 예정)
-        const effectiveStart = slot.actualStart || slot.start;
-        const effectiveEnd = slot.actualEnd || slot.end;
+        // 근무시간 계산: 항상 예정 시간 기준 (실제 버튼 입력 여부와 무관하게)
         let workHours: number | string = "-";
-        if (effectiveStart && effectiveEnd) {
-          const [sh, sm] = effectiveStart.split(":").map(Number);
-          const [eh, em] = effectiveEnd.split(":").map(Number);
+        if (slot.start && slot.end) {
+          const [sh, sm] = slot.start.split(":").map(Number);
+          const [eh, em] = slot.end.split(":").map(Number);
           const totalMin = (eh * 60 + em) - (sh * 60 + sm);
           if (totalMin > 0) workHours = Math.round((totalMin / 60) * 100) / 100;
         }
@@ -266,11 +264,11 @@ export async function exportToGoogleSheets(): Promise<{
         else if (!hasActualStart) note = "출근 미입력(예정시간 적용)";
         else if (!hasActualEnd) note = "퇴근 미입력(예정시간 적용)";
 
-        // 근무 시간 계산 (실제 우선, 없으면 예정)
+        // 근무 시간 계산: 항상 예정 시간 기준 (실제 버튼 입력 여부와 무관하게)
         let workHours: number | string = "-";
-        if (displayStart !== "-" && displayEnd !== "-") {
-          const [sh, sm] = displayStart.split(":").map(Number);
-          const [eh, em] = displayEnd.split(":").map(Number);
+        if (slot.start && slot.end) {
+          const [sh, sm] = slot.start.split(":").map(Number);
+          const [eh, em] = slot.end.split(":").map(Number);
           const totalMin = (eh * 60 + em) - (sh * 60 + sm);
           if (totalMin > 0) workHours = Math.round((totalMin / 60) * 100) / 100;
         }
@@ -300,10 +298,11 @@ export async function exportToGoogleSheets(): Promise<{
     const workerHours: Map<number, { name: string; totalHours: number; workDays: number }> = new Map();
     for (const s of schedules) {
       if (!s.isOperating) continue;
+      // 급여 계산: 항상 예정 시간 기준 (실제 버튼 입력 여부와 무관하게)
       const slots = [
-        { workerId: s.aTimeWorkerId, start: s.aTimeActualStartTime || s.aTimeStartTime, end: s.aTimeActualEndTime || s.aTimeEndTime },
-        { workerId: s.bTimeWorkerId, start: s.bTimeActualStartTime || s.bTimeStartTime, end: s.bTimeActualEndTime || s.bTimeEndTime },
-        { workerId: s.cTimeWorkerId, start: s.cTimeActualStartTime || s.cTimeStartTime, end: s.cTimeActualEndTime || s.cTimeEndTime },
+        { workerId: s.aTimeWorkerId, start: s.aTimeStartTime, end: s.aTimeEndTime },
+        { workerId: s.bTimeWorkerId, start: s.bTimeStartTime, end: s.bTimeEndTime },
+        { workerId: s.cTimeWorkerId, start: s.cTimeStartTime, end: s.cTimeEndTime },
       ];
       for (const slot of slots) {
         if (!slot.workerId || !slot.start || !slot.end) continue;
