@@ -34,7 +34,7 @@ function getKSTTimeString(): string {
 
 // 기본 타임별 출근/퇴근 시간
 const DEFAULT_START_TIMES: Record<string, string> = {
-  a: "17:00",
+  a: "17:30",
   b: "18:00",
   c: "18:00",
 };

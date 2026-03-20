@@ -1,0 +1,8 @@
+{
+  "query": "\nSELECT s.id, s.date, s.aTimeWorkerId, s.aTimeStartTime, s.aTimeEndTime,\n       s.bTimeWorkerId, s.bTimeStartTime, s.bTimeEndTime,\n       s.cTimeWorkerId, s.cTimeStartTime, s.cTimeEndTime,\n       w.name\nFROM schedules s\nJOIN workers w ON (s.aTimeWorkerId = w.id OR s.bTimeWorkerId = w.id OR s.cTimeWorkerId = w.id)\nWHERE w.name = '전민서'\nORDER BY s.date DESC\nLIMIT 20;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2A8Aro7D2nxffKJ.root --database o2y7YjaHBsMCC4pdAvoHmq --execute \nSELECT s.id, s.date, s.aTimeWorkerId, s.aTimeStartTime, s.aTimeEndTime,\n       s.bTimeWorkerId, s.bTimeStartTime, s.bTimeEndTime,\n       s.cTimeWorkerId, s.cTimeStartTime, s.cTimeEndTime,\n       w.name\nFROM schedules s\nJOIN workers w ON (s.aTimeWorkerId = w.id OR s.bTimeWorkerId = w.id OR s.cTimeWorkerId = w.id)\nWHERE w.name = '전민서'\nORDER BY s.date DESC\nLIMIT 20;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 2: Unknown column 's.date' in 'order clause'"
+  ]
+}
