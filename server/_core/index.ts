@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { startEmailScheduler } from "../emailScheduler";
+import { startGoogleSheetsScheduler } from "../googleSheetsScheduler";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -62,6 +63,8 @@ async function startServer() {
     console.log(`Server running on http://localhost:${port}/`);
     // 이메일 알림 스케줄러 시작
     startEmailScheduler();
+    // 구글 시트 자동 동기화 스케줄러 시작 (매일 자정 KST)
+    startGoogleSheetsScheduler();
   });
 }
 

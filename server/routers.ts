@@ -7,6 +7,7 @@ import { z } from "zod";
 import { sendShiftReminderEmail } from "./email";
 import { checkAndSendShiftReminders } from "./emailScheduler";
 import { exportToGoogleSheets, testGoogleSheetsConnection } from "./googleSheets";
+import { getLastSyncInfo } from "./googleSheetsScheduler";
 import {
   getAllWorkers,
   getWorkerById,
@@ -401,6 +402,16 @@ export const appRouter = router({
       .query(async () => {
         const connected = await testGoogleSheetsConnection();
         return { connected };
+      }),
+    /** 마지막 자동 동기화 정보 조회 */
+    lastSyncInfo: protectedProcedure
+      .query(async () => {
+        const info = getLastSyncInfo();
+        return {
+          lastSyncTime: info.lastSyncTime ? info.lastSyncTime.toISOString() : null,
+          lastSyncStatus: info.lastSyncStatus,
+          lastSyncMessage: info.lastSyncMessage,
+        };
       }),
   }),
   email: router({

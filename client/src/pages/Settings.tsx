@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Sheet, ExternalLink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Sheet, ExternalLink, CheckCircle2, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -444,6 +444,10 @@ function GoogleSheetsExportCard() {
     },
   });
 
+  const { data: syncInfo } = trpc.googleSheets.lastSyncInfo.useQuery(undefined, {
+    refetchInterval: 60 * 1000, // 1분마다 갱신
+  });
+
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-3">
@@ -455,8 +459,30 @@ function GoogleSheetsExportCard() {
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground leading-relaxed">
           알바생 목록, 스케줄, 출퇴근 기록, 급여 계산 데이터를 구글 시트에 내보냅니다.<br />
-          버튼을 누를 때마다 최신 데이터로 덮어쓰기됩니다.
+          버튼을 누를 때마다 최신 데이터로 덮어쓰기되며, <strong>매일 자정(KST 00:00)에 자동으로 동기화</strong>됩니다.
         </p>
+
+        {/* 자동 동기화 상태 */}
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/50">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>자동 동기화</span>
+          </div>
+          <div className="text-xs">
+            {!syncInfo || syncInfo.lastSyncStatus === "never" ? (
+              <span className="text-muted-foreground">아직 실행 안 됨</span>
+            ) : (
+              <span className={syncInfo.lastSyncStatus === "success" ? "text-green-400" : "text-red-400"}>
+                {syncInfo.lastSyncStatus === "success" ? "✓ 성공" : "✗ 실패"}
+                {syncInfo.lastSyncTime && (
+                  <span className="text-muted-foreground ml-1">
+                    ({new Date(syncInfo.lastSyncTime).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })})
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+        </div>
 
         {lastResult && (
           <div className={`flex items-start gap-2 p-3 rounded-lg text-xs ${
