@@ -159,6 +159,13 @@ export async function getScheduleByDate(date: string) {
   return result[0];
 }
 
+// 타임별 기본 근무 시간 (담당자 배정 시 시간이 없으면 자동 채움)
+const DEFAULT_TIMES = {
+  a: { start: "17:30", end: "22:00" },
+  b: { start: "18:00", end: "22:00" },
+  c: { start: "18:00", end: "22:00" },
+};
+
 export async function upsertSchedule(data: {
   scheduleDate: string;
   dayOfWeek: string;
@@ -172,15 +179,46 @@ export async function upsertSchedule(data: {
 
   const existing = await getScheduleByDate(data.scheduleDate);
   if (existing) {
-    await db.update(schedules).set({
+    // 기존 레코드 업데이트: 담당자가 새로 배정되면서 시간이 비어있으면 기본값 채우기
+    const updateFields: Record<string, unknown> = {
       dayOfWeek: data.dayOfWeek,
       isOperating: data.isOperating,
       aTimeWorkerId: data.aTimeWorkerId,
       bTimeWorkerId: data.bTimeWorkerId,
       cTimeWorkerId: data.cTimeWorkerId,
-    }).where(eq(schedules.id, existing.id));
+    };
+    // A타임: 담당자가 있는데 시간이 없으면 기본값 채우기
+    if (data.aTimeWorkerId && !existing.aTimeStartTime) {
+      updateFields.aTimeStartTime = DEFAULT_TIMES.a.start;
+      updateFields.aTimeEndTime = DEFAULT_TIMES.a.end;
+    }
+    // A타임: 담당자가 제거되면 시간도 초기화
+    if (!data.aTimeWorkerId) {
+      updateFields.aTimeStartTime = null;
+      updateFields.aTimeEndTime = null;
+    }
+    // B타임
+    if (data.bTimeWorkerId && !existing.bTimeStartTime) {
+      updateFields.bTimeStartTime = DEFAULT_TIMES.b.start;
+      updateFields.bTimeEndTime = DEFAULT_TIMES.b.end;
+    }
+    if (!data.bTimeWorkerId) {
+      updateFields.bTimeStartTime = null;
+      updateFields.bTimeEndTime = null;
+    }
+    // C타임
+    if (data.cTimeWorkerId && !existing.cTimeStartTime) {
+      updateFields.cTimeStartTime = DEFAULT_TIMES.c.start;
+      updateFields.cTimeEndTime = DEFAULT_TIMES.c.end;
+    }
+    if (!data.cTimeWorkerId) {
+      updateFields.cTimeStartTime = null;
+      updateFields.cTimeEndTime = null;
+    }
+    await db.update(schedules).set(updateFields as any).where(eq(schedules.id, existing.id));
     return { id: existing.id };
   } else {
+    // 신규 레코드: 담당자가 있으면 기본 시간 자동 채우기
     const result = await db.insert(schedules).values({
       scheduleDate: data.scheduleDate,
       dayOfWeek: data.dayOfWeek,
@@ -188,6 +226,12 @@ export async function upsertSchedule(data: {
       aTimeWorkerId: data.aTimeWorkerId,
       bTimeWorkerId: data.bTimeWorkerId,
       cTimeWorkerId: data.cTimeWorkerId,
+      aTimeStartTime: data.aTimeWorkerId ? DEFAULT_TIMES.a.start : null,
+      aTimeEndTime: data.aTimeWorkerId ? DEFAULT_TIMES.a.end : null,
+      bTimeStartTime: data.bTimeWorkerId ? DEFAULT_TIMES.b.start : null,
+      bTimeEndTime: data.bTimeWorkerId ? DEFAULT_TIMES.b.end : null,
+      cTimeStartTime: data.cTimeWorkerId ? DEFAULT_TIMES.c.start : null,
+      cTimeEndTime: data.cTimeWorkerId ? DEFAULT_TIMES.c.end : null,
     });
     return { id: result[0].insertId };
   }

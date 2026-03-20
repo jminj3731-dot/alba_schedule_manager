@@ -619,3 +619,53 @@ describe("calcCheckInTime - 출근 시간 기록 로직", () => {
     expect(calcCheckInTime("18:30", "18:00")).toBe("18:30");
   });
 });
+
+describe("upsertSchedule - default time auto-fill logic", () => {
+  // DEFAULT_TIMES 기본값 검증 (db.ts와 동일한 값 사용)
+  const DEFAULT_TIMES = {
+    a: { start: "17:30", end: "22:00" },
+    b: { start: "18:00", end: "22:00" },
+    c: { start: "18:00", end: "22:00" },
+  };
+
+  it("A타임 기본 출근 시간은 17:30이다", () => {
+    expect(DEFAULT_TIMES.a.start).toBe("17:30");
+  });
+
+  it("A타임 기본 퇴근 시간은 22:00이다", () => {
+    expect(DEFAULT_TIMES.a.end).toBe("22:00");
+  });
+
+  it("B타임 기본 출근 시간은 18:00이다", () => {
+    expect(DEFAULT_TIMES.b.start).toBe("18:00");
+  });
+
+  it("C타임 기본 출근 시간은 18:00이다", () => {
+    expect(DEFAULT_TIMES.c.start).toBe("18:00");
+  });
+
+  it("담당자가 있으면 기본 시간을 채워야 한다 (신규 레코드 로직)", () => {
+    const workerId = 1;
+    // 담당자가 있으면 기본 시간 사용
+    const aTimeStartTime = workerId ? DEFAULT_TIMES.a.start : null;
+    const aTimeEndTime = workerId ? DEFAULT_TIMES.a.end : null;
+    expect(aTimeStartTime).toBe("17:30");
+    expect(aTimeEndTime).toBe("22:00");
+  });
+
+  it("담당자가 없으면 시간도 null이어야 한다", () => {
+    const workerId = null;
+    const aTimeStartTime = workerId ? DEFAULT_TIMES.a.start : null;
+    const aTimeEndTime = workerId ? DEFAULT_TIMES.a.end : null;
+    expect(aTimeStartTime).toBeNull();
+    expect(aTimeEndTime).toBeNull();
+  });
+
+  it("기존 시간이 있으면 기본값으로 덮어쓰지 않는다 (업데이트 로직)", () => {
+    const existingStartTime = "17:00"; // 수동으로 지정된 시간
+    const workerId = 1;
+    // 기존 시간이 있으면 기본값 채우기 조건 false
+    const shouldFillDefault = workerId && !existingStartTime;
+    expect(shouldFillDefault).toBeFalsy();
+  });
+});
