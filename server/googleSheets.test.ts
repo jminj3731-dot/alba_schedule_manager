@@ -244,14 +244,12 @@ describe("GoogleSheets - data structure", () => {
       WORKERS: "알바생 목록",
       SCHEDULES: "스케줄",
       ATTENDANCE: "출퇴근 기록",
-      SALARY: "급여 계산",
     };
 
     expect(SHEETS.WORKERS).toBe("알바생 목록");
     expect(SHEETS.SCHEDULES).toBe("스케줄");
     expect(SHEETS.ATTENDANCE).toBe("출퇴근 기록");
-    expect(SHEETS.SALARY).toBe("급여 계산");
-    expect(Object.keys(SHEETS)).toHaveLength(4);
+    expect(Object.keys(SHEETS)).toHaveLength(3);
   });
 
   it("work hours calculation is correct", () => {

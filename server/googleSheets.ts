@@ -1,6 +1,6 @@
 /**
  * 구글 시트 내보내기 모듈
- * 알바생 정보, 스케줄, 출퇴근 기록, 급여 계산 데이터를 구글 시트에 업데이트
+ * 알바생 정보, 스케줄, 출퇴근 기록 데이터를 구글 시트에 업데이트
  */
 import { google } from "googleapis";
 import { getAllWorkers, getSchedulesByDateRange, getStatsByDateRange } from "./db";
@@ -14,7 +14,6 @@ const SHEETS = {
   WORKERS: "알바생 목록",
   SCHEDULES: "스케줄",
   ATTENDANCE: "출퇴근 기록",
-  SALARY: "급여 계산",
 };
 
 /** 구글 Sheets API 클라이언트 생성 */
@@ -118,11 +117,13 @@ async function boldHeader(
   });
 }
 
-/** 날짜 범위 계산: 최근 3개월 (기본값) */
+/** 날짜 범위 계산: 오늘까지 최근 3개월 (기본값, 미래 스케줄 미포함) */
 function getDefaultDateRange(): { startDate: string; endDate: string } {
   const now = new Date();
-  const end = now.toISOString().split("T")[0];
-  const start = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+  // KST 기준 오늘 날짜를 endDate로 사용
+  const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const end = kstNow.toISOString().split("T")[0];
+  const start = new Date(kstNow.getFullYear(), kstNow.getMonth() - 2, 1)
     .toISOString()
     .split("T")[0];
   return { startDate: start, endDate: end };
@@ -166,7 +167,7 @@ function minutesToHHMM(minutes: number): string {
 
 /**
  * 전체 데이터를 구글 시트에 내보내기
- * 탭 구성: 알바생 목록 / 스케줄 / 출퇴근 기록 / 급여 계산
+ * 탭 구성: 알바생 목록 / 스케줄 / 출퇴근 기록
  */
 export async function exportToGoogleSheets(options?: {
   startDate?: string;
@@ -324,59 +325,6 @@ export async function exportToGoogleSheets(options?: {
     attendanceRows.push([], [`마지막 업데이트: ${now}`]);
     await overwriteSheet(sheets, spreadsheetId, SHEETS.ATTENDANCE, attendanceRows);
     await boldHeader(sheets, spreadsheetId, attendanceSheetId, 10);
-
-    // ── 4. 급여 계산 탭 ──
-    const salarySheetId = await ensureSheetTab(sheets, spreadsheetId, SHEETS.SALARY);
-
-    // 알바생별 총 근무시간 집계
-    const workerHours: Map<number, { name: string; totalHours: number; workDays: number }> = new Map();
-    for (const s of schedules) {
-      if (!s.isOperating) continue;
-      // 급여 계산: 항상 예정 시간 기준 (실제 버튼 입력 여부와 무관하게)
-      const slots = [
-        { workerId: s.aTimeWorkerId, start: s.aTimeStartTime, end: s.aTimeEndTime },
-        { workerId: s.bTimeWorkerId, start: s.bTimeStartTime, end: s.bTimeEndTime },
-        { workerId: s.cTimeWorkerId, start: s.cTimeStartTime, end: s.cTimeEndTime },
-      ];
-      for (const slot of slots) {
-        if (!slot.workerId || !slot.start || !slot.end) continue;
-        const [sh, sm] = slot.start.split(":").map(Number);
-        const [eh, em] = slot.end.split(":").map(Number);
-        const hours = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
-        if (hours <= 0) continue;
-        const existing = workerHours.get(slot.workerId) || { name: workerMap.get(slot.workerId) ?? "알 수 없음", totalHours: 0, workDays: 0 };
-        existing.totalHours += hours;
-        existing.workDays += 1;
-        workerHours.set(slot.workerId, existing);
-      }
-    }
-
-    const HOURLY_RATE = 10030; // 2024년 최저시급
-
-    // 급여 행 수식 (행 번호 정확히 계산: 헤더 1행 + 데이터 idx)
-    const salaryDataRows = Array.from(workerHours.entries()).map(([, v], idx) => {
-      const rowNum = idx + 2; // 1행은 헤더
-      return [
-        v.name,
-        `${startDate} ~ ${endDate}`,
-        v.workDays,
-        Math.round(v.totalHours * 100) / 100,
-        HOURLY_RATE,
-        `=D${rowNum}*E${rowNum}`,
-      ];
-    });
-
-    const finalSalaryRows: (string | number | null)[][] = [
-      ["이름", "근무 기간", "총 근무일수", "총 근무시간(h)", "시급 (원)", "예상 급여 (원)"],
-      ...salaryDataRows,
-      [],
-      [`기간: ${startDate} ~ ${endDate}`],
-      [`※ 시급은 2024년 최저시급(${HOURLY_RATE.toLocaleString()}원) 기준. E열을 실제 시급으로 수정하세요.`],
-      [`마지막 업데이트: ${now}`],
-    ];
-
-    await overwriteSheet(sheets, spreadsheetId, SHEETS.SALARY, finalSalaryRows);
-    await boldHeader(sheets, spreadsheetId, salarySheetId, 6);
 
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
     console.log(`[GoogleSheets] Export completed at ${now}`);
