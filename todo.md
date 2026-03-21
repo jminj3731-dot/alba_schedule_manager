@@ -292,3 +292,6 @@
 - [x] ADMIN_EMAIL2 환경변수 설정 (hooniok@gmail.com)
 - [x] routers.ts checkOut: ADMIN_EMAIL, ADMIN_EMAIL2 모두에 퇴근 완료 알림 발송
 - [x] 127개 테스트 통과
+
+## v35 출근 시간 옵션 추가
+- [x] 마스터 페이지: 출근 시간 선택 옵션에 20:00(8시), 20:30(8시 반) 추가
