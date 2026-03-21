@@ -194,8 +194,11 @@ export const appRouter = router({
         });
         // 관리자에게 퇴근 완료 이메일 발송
         if (result?.workerName && result?.scheduledEndTime) {
-          const adminEmail = process.env.ADMIN_EMAIL;
-          if (adminEmail) {
+          const adminEmails = [
+            process.env.ADMIN_EMAIL,
+            process.env.ADMIN_EMAIL2,
+          ].filter(Boolean) as string[];
+          for (const adminEmail of adminEmails) {
             await sendCheckOutNotifyToAdmin({
               to: adminEmail,
               workerName: result.workerName,

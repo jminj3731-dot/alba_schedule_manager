@@ -287,3 +287,8 @@
 ## v33 버그 수정: A타임 기본 출근 시간 오타
 - [x] emailScheduler.ts: A타임 기본 출근 시간 17:00 → 17:30 수정 (오타)
 - [x] 127개 테스트 통과
+
+## v34 관리자 이메일 추가
+- [x] ADMIN_EMAIL2 환경변수 설정 (hooniok@gmail.com)
+- [x] routers.ts checkOut: ADMIN_EMAIL, ADMIN_EMAIL2 모두에 퇴근 완료 알림 발송
+- [x] 127개 테스트 통과
