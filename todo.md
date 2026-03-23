@@ -300,3 +300,8 @@
 - [x] email.ts formatDate: Date.UTC() + getUTCDay() 방식으로 수정 (토요일이 금요일로 표시되던 버그 해결)
 - [x] 4개 날짜 검증 테스트 모두 통과 (3/21 토, 3/22 일, 3/23 월, 3/20 금)
 - [x] 127개 테스트 통과
+
+## v37 로그인 없이 구글 시트 사용 가능하도록 수정
+- [x] googleSheets.export, testConnection, lastSyncInfo를 protectedProcedure → publicProcedure로 변경
+- [x] Settings 페이지 접근 시 Manus 로그인 리다이렉트 문제 해결
+- [x] 127개 테스트 통과

@@ -416,7 +416,7 @@ export const appRouter = router({
 
   googleSheets: router({
     /** 구글 시트로 전체 데이터 내보내기 */
-    export: protectedProcedure
+    export: publicProcedure
       .input(z.object({
         startDate: z.string().optional(), // YYYY-MM-DD
         endDate: z.string().optional(),   // YYYY-MM-DD
@@ -425,13 +425,13 @@ export const appRouter = router({
         return exportToGoogleSheets(input || {});
       }),
     /** 구글 시트 연결 상태 확인 */
-    testConnection: protectedProcedure
+    testConnection: publicProcedure
       .query(async () => {
         const connected = await testGoogleSheetsConnection();
         return { connected };
       }),
     /** 마지막 자동 동기화 정보 조회 */
-    lastSyncInfo: protectedProcedure
+    lastSyncInfo: publicProcedure
       .query(async () => {
         const info = getLastSyncInfo();
         return {
