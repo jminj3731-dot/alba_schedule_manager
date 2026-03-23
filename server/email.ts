@@ -5,13 +5,17 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // 발신자 이메일 주소 (Resend에서 제공하는 기본 도메인 사용)
 const FROM_EMAIL = "대한한우숯불구이 <onboarding@resend.dev>";
 
-/** 날짜 포맷 공통 유틸 */
+/** 날짜 포맷 공통 유틸 - KST 기준 요일 계산 */
 function formatDate(scheduleDate: string): string {
-  const dateObj = new Date(scheduleDate + "T00:00:00+09:00");
   const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
-  const dayName = DAY_NAMES[dateObj.getDay()];
-  const [year, month, day] = scheduleDate.split("-");
-  return `${year}년 ${parseInt(month)}월 ${parseInt(day)}일 (${dayName})`;
+  // scheduleDate는 YYYY-MM-DD 형식 (KST 날짜)
+  // 날짜 문자열을 직접 파싱하여 요일 계산 (서버 타임존 영향 없음)
+  const [year, month, day] = scheduleDate.split("-").map(Number);
+  // new Date(y, m-1, d)는 로컈 시간 기준이지만, 서버가 UTC이면 날짜가 바뀌지 않음
+  // UTC 기준으로 직접 요일 계산: UTC 자정으로 생성 후 getUTCDay() 사용
+  const dateObj = new Date(Date.UTC(year, month - 1, day));
+  const dayName = DAY_NAMES[dateObj.getUTCDay()];
+  return `${year}년 ${month}월 ${day}일 (${dayName})`;
 }
 
 /**
