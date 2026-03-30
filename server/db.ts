@@ -1,22 +1,58 @@
 import { eq, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { createPool as mysqlCreatePool } from "mysql2/promise";
 import { InsertUser, users, workers, schedules, notificationLogs, activityLogs, type InsertWorker, type InsertSchedule, type InsertNotificationLog, type InsertActivityLog, type ActivityLog } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _pool: any = null;
+
+/** DB 커넥션 풀 생성 (ECONNRESET 자동 복구) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createPool(): any {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    const pool = mysqlCreatePool({
+      uri: process.env.DATABASE_URL,
+      waitForConnections: true,
+      connectionLimit: 5,
+      queueLimit: 0,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 30000,
+    });
+    // ECONNRESET 등 연결 오류 시 풀 자동 재생성
+    pool.on('error' as any, (err: any) => {
+      console.warn('[Database] Pool error, will recreate on next query:', err.code);
+      _db = null;
+      _pool = null;
+    });
+    return pool;
+  } catch (error) {
+    console.warn('[Database] Failed to create pool:', error);
+    return null;
+  }
+}
 
 /** DB 연결을 강제로 다시 생성 (ECONNRESET 등 연결 끊김 시 호출) */
 export function resetDbConnection() {
+  try { _pool?.end().catch(() => {}); } catch {}
   _db = null;
+  _pool = null;
 }
 
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
+  if (!_db) {
+    if (!_pool) {
+      _pool = createPool();
+    }
+    if (_pool) {
+      try {
+        _db = drizzle(_pool as any);
+      } catch (error) {
+        console.warn('[Database] Failed to create drizzle instance:', error);
+        _db = null;
+      }
     }
   }
   return _db;

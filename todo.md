@@ -305,3 +305,9 @@
 - [x] googleSheets.export, testConnection, lastSyncInfo를 protectedProcedure → publicProcedure로 변경
 - [x] Settings 페이지 접근 시 Manus 로그인 리다이렉트 문제 해결
 - [x] 127개 테스트 통과
+
+## v38 이메일 알림 시스템 수정
+- [x] db.ts: 단일 연결 방식 → mysql2 커넥션 풀(createPool) 방식으로 변경 (ECONNRESET 자동 복구)
+- [x] db.ts: 풀 에러 이벤트 핸들러 추가 (풀 오류 시 _db/_pool 자동 리셋)
+- [x] DB에 시간값이 null로 저장된 스케줄 8개 수동 복구 (3/30~4/7)
+- [x] 127개 테스트 통과
