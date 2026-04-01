@@ -11,10 +11,20 @@ let _pool: any = null;
 /** DB 커넥션 풀 생성 (ECONNRESET 자동 복구) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createPool(): any {
-  if (!process.env.DATABASE_URL) return null;
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    console.error('[Database] DATABASE_URL is not set');
+    return null;
+  }
   try {
+    // URI 옵션 대신 URL을 직접 파싱하여 개별 옵션으로 전달 (ssl 설정 충돌 방지)
+    const url = new URL(dbUrl);
     const pool = mysqlCreatePool({
-      uri: process.env.DATABASE_URL,
+      host: url.hostname,
+      port: parseInt(url.port) || 3306,
+      user: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+      database: url.pathname.slice(1),
       waitForConnections: true,
       connectionLimit: 5,
       queueLimit: 0,
@@ -28,9 +38,10 @@ function createPool(): any {
       _db = null;
       _pool = null;
     });
+    console.log('[Database] Pool created:', url.hostname, url.pathname.slice(1));
     return pool;
   } catch (error) {
-    console.warn('[Database] Failed to create pool:', error);
+    console.error('[Database] Failed to create pool:', error);
     return null;
   }
 }
