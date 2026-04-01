@@ -20,6 +20,7 @@ function createPool(): any {
       queueLimit: 0,
       enableKeepAlive: true,
       keepAliveInitialDelay: 30000,
+      ssl: { rejectUnauthorized: false },
     });
     // ECONNRESET 등 연결 오류 시 풀 자동 재생성
     pool.on('error' as any, (err: any) => {
