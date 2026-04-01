@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,8 @@ import {
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 const WEEKEND_DAYS = ["금", "토"];
@@ -98,6 +100,13 @@ function calcCheckInTime(actualTimeStr: string, scheduledTimeStr: string): strin
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+function timeToMinutes(t: string): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return 0;
+  return h * 60 + m;
+}
+
 function getCurrentTimeStr(): string {
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, "0");
@@ -148,6 +157,24 @@ export default function Home() {
   // GPS 위치 상태
   const [locationChecking, setLocationChecking] = useState(false);
 
+  // 출퇴근 수정 다이얼로그 상태
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionCtx, setCorrectionCtx] = useState<{
+    type: "check_in" | "check_out" | "both";
+    scheduleDate: string;
+    timeSlot: "a" | "b" | "c";
+    originalCheckInTime?: string;
+    originalCheckOutTime?: string;
+    scheduledCheckInTime?: string;
+  } | null>(null);
+  const [corrCheckInTime, setCorrCheckInTime] = useState("");
+  const [corrCheckOutTime, setCorrCheckOutTime] = useState("");
+  const [corrReason, setCorrReason] = useState("");
+
+  // 수정 감지를 위한 refs (mutation onSuccess에서 사용)
+  const scheduledStartRef = useRef<string>("");
+  const checkedInTimeRef = useRef<string>("");
+
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const startDate = weekDates[0].dateStr;
   const endDate = weekDates[6].dateStr;
@@ -195,6 +222,20 @@ export default function Home() {
           metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, actualStartTime: variables.actualStartTime, displayStartTime: variables.startTime }),
         });
       }
+      // 예정 출근 시간보다 15분 이상 늦은 경우 수정 팝업
+      const actualMins = timeToMinutes(variables.actualStartTime);
+      const scheduledMins = timeToMinutes(scheduledStartRef.current);
+      if (scheduledMins > 0 && actualMins - scheduledMins >= 15) {
+        setCorrectionCtx({
+          type: "check_in",
+          scheduleDate: variables.scheduleDate,
+          timeSlot: variables.timeSlot,
+          originalCheckInTime: variables.actualStartTime,
+          scheduledCheckInTime: scheduledStartRef.current,
+        });
+        setCorrCheckInTime(variables.actualStartTime);
+        setCorrectionOpen(true);
+      }
     },
     onError: () => {
       toast.error("출근 처리에 실패했습니다.");
@@ -214,6 +255,21 @@ export default function Home() {
           description: `${loggedInName}님이 ${variables.scheduleDate} 퇴근 버튼을 눠렀습니다. 실제 시간 ${variables.actualEndTime} → ${variables.endTime}으로 기록`,
           metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, actualEndTime: variables.actualEndTime, displayEndTime: variables.endTime }),
         });
+      }
+      // 출근/퇴근 간격 3분 이하 → 동시 누름으로 판단, 수정 팝업
+      const checkOutMins = timeToMinutes(variables.actualEndTime);
+      const checkInMins = timeToMinutes(checkedInTimeRef.current);
+      if (checkInMins > 0 && checkOutMins - checkInMins <= 3) {
+        setCorrectionCtx({
+          type: "both",
+          scheduleDate: variables.scheduleDate,
+          timeSlot: variables.timeSlot,
+          originalCheckInTime: checkedInTimeRef.current,
+          originalCheckOutTime: variables.actualEndTime,
+        });
+        setCorrCheckInTime(checkedInTimeRef.current);
+        setCorrCheckOutTime(variables.actualEndTime);
+        setCorrectionOpen(true);
       }
     },
     onError: () => {
@@ -249,6 +305,55 @@ export default function Home() {
       setPrefDialogOpen(false);
     },
   });
+
+  const correctTimeMutation = trpc.attendanceCorrections.create.useMutation({
+    onSuccess: () => {
+      utils.schedules.getByDateRange.invalidate();
+      toast.success("시간이 수정되었습니다.");
+      setCorrectionOpen(false);
+      setCorrectionCtx(null);
+      setCorrReason("");
+      setCorrCheckInTime("");
+      setCorrCheckOutTime("");
+    },
+    onError: () => {
+      toast.error("수정에 실패했습니다. 다시 시도해주세요.");
+    },
+  });
+
+  function handleSkipCorrection() {
+    if (!correctionCtx || !loggedInName) return;
+    const worker = workers.find((w) => w.name === loggedInName);
+    correctTimeMutation.mutate({
+      workerId: worker?.id ?? null,
+      workerName: loggedInName,
+      scheduleDate: correctionCtx.scheduleDate,
+      timeSlot: correctionCtx.timeSlot,
+      correctionType: correctionCtx.type,
+      actionType: "skipped",
+      originalCheckInTime: correctionCtx.originalCheckInTime,
+      originalCheckOutTime: correctionCtx.originalCheckOutTime,
+    });
+  }
+
+  function handleCorrect() {
+    if (!correctionCtx || !loggedInName || !corrReason.trim()) return;
+    const worker = workers.find((w) => w.name === loggedInName);
+    correctTimeMutation.mutate({
+      workerId: worker?.id ?? null,
+      workerName: loggedInName,
+      scheduleDate: correctionCtx.scheduleDate,
+      timeSlot: correctionCtx.timeSlot,
+      correctionType: correctionCtx.type,
+      actionType: "corrected",
+      originalCheckInTime: correctionCtx.originalCheckInTime,
+      correctedCheckInTime: correctionCtx.type !== "check_out" ? corrCheckInTime : undefined,
+      scheduledCheckInTime: correctionCtx.scheduledCheckInTime,
+      originalCheckOutTime: correctionCtx.originalCheckOutTime,
+      correctedCheckOutTime: correctionCtx.type !== "check_in" ? corrCheckOutTime : undefined,
+      reason: corrReason.trim(),
+    });
+  }
 
   const currentWorker = useMemo(() => {
     if (!loggedInName) return null;
@@ -555,6 +660,7 @@ export default function Home() {
                             className="flex-1 h-10 gap-1.5 bg-green-600 hover:bg-green-700 text-white"
                             disabled={checkInMutation.isPending || locationChecking}
                             onClick={() => {
+                              scheduledStartRef.current = todaySlot.startTime;
                               if (!navigator.geolocation) {
                                 toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
                                 return;
@@ -613,6 +719,7 @@ export default function Home() {
                             className="flex-1 h-10 gap-1.5 bg-transparent border-primary/40 text-primary hover:bg-primary/10"
                             disabled={checkOutMutation.isPending || !checkedInTime || locationChecking}
                             onClick={() => {
+                              checkedInTimeRef.current = checkedInTime || "";
                               if (!navigator.geolocation) {
                                 toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
                                 return;
@@ -812,6 +919,7 @@ export default function Home() {
                                 className="flex-1 h-9 gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm"
                                 disabled={checkInMutation.isPending || locationChecking}
                                 onClick={() => {
+                                  scheduledStartRef.current = mySlot.startTime;
                                   if (!navigator.geolocation) {
                                     toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
                                     return;
@@ -872,6 +980,7 @@ export default function Home() {
                                 className="flex-1 h-9 gap-1.5 bg-transparent border-primary/40 text-primary hover:bg-primary/10 text-sm"
                                 disabled={checkOutMutation.isPending || !checkedInTime || locationChecking}
                                 onClick={() => {
+                                  checkedInTimeRef.current = checkedInTime || "";
                                   if (!navigator.geolocation) {
                                     toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
                                     return;
@@ -1006,6 +1115,89 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* 출퇴근 시간 수정 다이얼로그 */}
+      <Dialog open={correctionOpen} onOpenChange={(open) => {
+        if (!open) {
+          setCorrectionOpen(false);
+          setCorrectionCtx(null);
+          setCorrReason("");
+          setCorrCheckInTime("");
+          setCorrCheckOutTime("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-sm bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary" />
+              출퇴근 시간 수정
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <p className="text-sm text-muted-foreground">
+              {correctionCtx?.type === "check_in"
+                ? "출근 시간보다 늦게 입력되었어요. 실제 출근 시간으로 수정하시겠어요?"
+                : "출퇴근이 거의 동시에 입력되었어요. 실제 시간으로 수정하시겠어요?"}
+            </p>
+            {correctionCtx?.type !== "check_out" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">실제 출근 시간</Label>
+                <input
+                  type="time"
+                  value={corrCheckInTime}
+                  onChange={(e) => setCorrCheckInTime(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-secondary/50 px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                {correctionCtx?.originalCheckInTime && (
+                  <p className="text-[10px] text-muted-foreground">기록된 시간: {correctionCtx.originalCheckInTime}</p>
+                )}
+              </div>
+            )}
+            {correctionCtx?.type !== "check_in" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">실제 퇴근 시간</Label>
+                <input
+                  type="time"
+                  value={corrCheckOutTime}
+                  onChange={(e) => setCorrCheckOutTime(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-secondary/50 px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                {correctionCtx?.originalCheckOutTime && (
+                  <p className="text-[10px] text-muted-foreground">기록된 시간: {correctionCtx.originalCheckOutTime}</p>
+                )}
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                수정 사유 <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                value={corrReason}
+                onChange={(e) => setCorrReason(e.target.value)}
+                placeholder="실제 출근/퇴근 시간과 다른 이유를 입력해 주세요"
+                className="bg-secondary/50 resize-none text-sm"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              className="bg-transparent"
+              onClick={handleSkipCorrection}
+              disabled={correctTimeMutation.isPending}
+            >
+              그대로 저장
+            </Button>
+            <Button
+              onClick={handleCorrect}
+              disabled={!corrReason.trim() || correctTimeMutation.isPending}
+            >
+              수정하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Admin password dialog */}
       <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>

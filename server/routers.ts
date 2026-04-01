@@ -4,7 +4,7 @@ import { notifyOwner } from "./_core/notification";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { sendShiftReminderEmail, sendCheckOutNotifyToAdmin } from "./email";
+import { sendShiftReminderEmail, sendCheckOutNotifyToAdmin, sendAttendanceCorrectionToAdmin } from "./email";
 import { checkAndSendShiftReminders } from "./emailScheduler";
 import { exportToGoogleSheets, testGoogleSheetsConnection } from "./googleSheets";
 import { getLastSyncInfo } from "./googleSheetsScheduler";
@@ -29,6 +29,10 @@ import {
   getStatsByDateRange,
   createActivityLog,
   getActivityLogs,
+  getAppSetting,
+  setAppSetting,
+  createAttendanceCorrection,
+  updateScheduleActualTimes,
 } from "./db";
 
 const WEEKEND_DAYS = ["금", "토"];
@@ -460,6 +464,100 @@ export const appRouter = router({
     triggerCheck: publicProcedure
       .mutation(async () => {
         await checkAndSendShiftReminders();
+        return { success: true };
+      }),
+  }),
+
+  settings: router({
+    get: publicProcedure
+      .input(z.object({ key: z.string() }))
+      .query(async ({ input }) => {
+        const value = await getAppSetting(input.key);
+        return { value };
+      }),
+
+    set: publicProcedure
+      .input(z.object({ key: z.string(), value: z.string() }))
+      .mutation(async ({ input }) => {
+        await setAppSetting(input.key, input.value);
+        return { success: true };
+      }),
+  }),
+
+  attendanceCorrections: router({
+    create: publicProcedure
+      .input(z.object({
+        workerId: z.number().nullable().optional(),
+        workerName: z.string(),
+        scheduleDate: z.string(),
+        timeSlot: z.enum(["a", "b", "c"]),
+        correctionType: z.enum(["check_in", "check_out", "both"]),
+        actionType: z.enum(["corrected", "skipped"]),
+        originalCheckInTime: z.string().optional(),
+        correctedCheckInTime: z.string().optional(),
+        scheduledCheckInTime: z.string().optional(),
+        originalCheckOutTime: z.string().optional(),
+        correctedCheckOutTime: z.string().optional(),
+        reason: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        if (input.actionType === "corrected") {
+          // 스케줄 실제 시간 업데이트
+          await updateScheduleActualTimes({
+            scheduleDate: input.scheduleDate,
+            timeSlot: input.timeSlot,
+            correctedCheckInTime: input.correctedCheckInTime,
+            correctedCheckOutTime: input.correctedCheckOutTime,
+            scheduledCheckInTime: input.scheduledCheckInTime,
+          });
+
+          // 관리자 이메일 발송 (settings 우선, 없으면 env fallback)
+          const settingsEmail = await getAppSetting("adminNotificationEmail");
+          const adminEmailStr = settingsEmail || process.env.ADMIN_NOTIFICATION_EMAIL || "";
+          const adminEmails = adminEmailStr.split(",").map((e: string) => e.trim()).filter(Boolean);
+          for (const email of adminEmails) {
+            await sendAttendanceCorrectionToAdmin({
+              to: email,
+              workerName: input.workerName,
+              scheduleDate: input.scheduleDate,
+              timeSlot: input.timeSlot.toUpperCase(),
+              correctionType: input.correctionType,
+              originalCheckInTime: input.originalCheckInTime,
+              correctedCheckInTime: input.correctedCheckInTime,
+              originalCheckOutTime: input.originalCheckOutTime,
+              correctedCheckOutTime: input.correctedCheckOutTime,
+              reason: input.reason || "",
+            }).catch(() => {});
+          }
+        }
+
+        // 수정/스킵 이력 저장
+        await createAttendanceCorrection({
+          workerId: input.workerId ?? null,
+          workerName: input.workerName,
+          scheduleDate: input.scheduleDate,
+          timeSlot: input.timeSlot,
+          correctionType: input.correctionType,
+          actionType: input.actionType,
+          originalCheckInTime: input.originalCheckInTime,
+          correctedCheckInTime: input.correctedCheckInTime,
+          originalCheckOutTime: input.originalCheckOutTime,
+          correctedCheckOutTime: input.correctedCheckOutTime,
+          reason: input.reason,
+        });
+
+        // activityLogs 기록
+        const typeLabel = input.correctionType === "check_in" ? "출근" : input.correctionType === "check_out" ? "퇴근" : "출퇴근";
+        await createActivityLog({
+          workerId: input.workerId ?? null,
+          workerName: input.workerName,
+          actionType: input.actionType === "corrected" ? "attendance_correction" : "correction_skipped",
+          description: input.actionType === "corrected"
+            ? `${input.workerName}님이 ${input.scheduleDate} ${typeLabel} 시간을 수정했습니다. 사유: ${input.reason}`
+            : `${input.workerName}님이 ${input.scheduleDate} 출퇴근 시간 수정 팝업을 건너뛰었습니다.`,
+          metadata: JSON.stringify(input),
+        });
+
         return { success: true };
       }),
   }),

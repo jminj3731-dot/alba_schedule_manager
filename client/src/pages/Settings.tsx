@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Sheet, ExternalLink, CheckCircle2, AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Sheet, ExternalLink, CheckCircle2, AlertCircle, Loader2, RefreshCw, Bell, Save } from "lucide-react";
 import { toast } from "sonner";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -293,6 +293,9 @@ export default function Settings() {
         {/* Google Sheets Export Card */}
         <GoogleSheetsExportCard />
 
+        {/* 알림 설정 */}
+        <AdminNotificationSettings />
+
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-md bg-card border-border">
@@ -447,6 +450,64 @@ function calcPayPeriod(payDay: number): { startDate: string; endDate: string } {
 
   const fmt = (d: Date) => d.toISOString().split("T")[0];
   return { startDate: fmt(periodStart), endDate: fmt(periodEnd) };
+}
+
+function AdminNotificationSettings() {
+  const [emailInput, setEmailInput] = useState("");
+  const { data, isLoading } = trpc.settings.get.useQuery({ key: "adminNotificationEmail" });
+  const setMutation = trpc.settings.set.useMutation({
+    onSuccess: () => toast.success("관리자 알림 이메일이 저장되었습니다."),
+    onError: () => toast.error("저장에 실패했습니다."),
+  });
+
+  // 서버에서 불러온 값을 input에 반영
+  const loadedValue = data?.value ?? "";
+  const [initialized, setInitialized] = useState(false);
+  if (!initialized && !isLoading) {
+    setEmailInput(loadedValue);
+    setInitialized(true);
+  }
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Bell className="w-4 h-4 text-primary" />
+          알림 설정
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">
+            관리자 알림 이메일
+            <span className="ml-1 text-[10px] text-muted-foreground/60">(출퇴근 수정 시 알림 발송)</span>
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              placeholder="admin@example.com, admin2@example.com"
+              className="bg-secondary/50 text-sm flex-1"
+              disabled={isLoading}
+            />
+            <Button
+              size="sm"
+              onClick={() => setMutation.mutate({ key: "adminNotificationEmail", value: emailInput.trim() })}
+              disabled={setMutation.isPending || isLoading}
+              className="gap-1.5 shrink-0"
+            >
+              <Save className="w-3.5 h-3.5" />
+              저장
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            쉼표로 구분하여 여러 명에게 발송 가능 · 미입력 시 환경변수 ADMIN_NOTIFICATION_EMAIL 사용
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function GoogleSheetsExportCard() {

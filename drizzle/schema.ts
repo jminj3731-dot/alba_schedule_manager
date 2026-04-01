@@ -125,13 +125,15 @@ export const activityLogs = mysqlTable("activityLogs", {
   workerName: varchar("workerName", { length: 100 }).notNull(),
   /** 액션 유형 */
   actionType: mysqlEnum("actionType", [
-    "end_time_update",      // 퇴근 시간 수정
-    "start_time_update",   // 출근 시간 수정
-    "preferred_days_update", // 선호 근무일 변경
-    "fixed_days_off_update", // 휴무요일 변경
-    "worker_created",      // 알바생 추가
-    "worker_updated",      // 알바생 정보 수정
-    "worker_deleted",      // 알바생 삭제
+    "end_time_update",        // 퇴근 시간 수정
+    "start_time_update",      // 출근 시간 수정
+    "preferred_days_update",  // 선호 근무일 변경
+    "fixed_days_off_update",  // 휴무요일 변경
+    "worker_created",         // 알바생 추가
+    "worker_updated",         // 알바생 정보 수정
+    "worker_deleted",         // 알바생 삭제
+    "attendance_correction",  // 출퇴근 시간 수정
+    "correction_skipped",     // 수정 팝업 건너뜀
   ]).notNull(),
   /** 활동 설명 (사람이 읽을 수 있는 텍스트) */
   description: text("description").notNull(),
@@ -142,3 +144,40 @@ export const activityLogs = mysqlTable("activityLogs", {
 
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = typeof activityLogs.$inferInsert;
+
+/**
+ * AppSettings table - 앱 전역 설정 키/값 저장
+ */
+export const appSettings = mysqlTable("appSettings", {
+  id: int("id").autoincrement().primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AppSetting = typeof appSettings.$inferSelect;
+export type InsertAppSetting = typeof appSettings.$inferInsert;
+
+/**
+ * AttendanceCorrections table - 출퇴근 시간 수정/스킵 이력
+ */
+export const attendanceCorrections = mysqlTable("attendanceCorrections", {
+  id: int("id").autoincrement().primaryKey(),
+  workerId: int("workerId"),
+  workerName: varchar("workerName", { length: 100 }).notNull(),
+  scheduleDate: varchar("scheduleDate", { length: 10 }).notNull(),
+  timeSlot: mysqlEnum("timeSlot", ["a", "b", "c"]).notNull(),
+  /** 수정 대상: check_in=출근만, check_out=퇴근만, both=출퇴근 모두 */
+  correctionType: mysqlEnum("correctionType", ["check_in", "check_out", "both"]).notNull(),
+  /** corrected=시간 수정, skipped=그대로 저장 */
+  actionType: mysqlEnum("actionType", ["corrected", "skipped"]).notNull(),
+  originalCheckInTime: varchar("originalCheckInTime", { length: 10 }),
+  correctedCheckInTime: varchar("correctedCheckInTime", { length: 10 }),
+  originalCheckOutTime: varchar("originalCheckOutTime", { length: 10 }),
+  correctedCheckOutTime: varchar("correctedCheckOutTime", { length: 10 }),
+  reason: text("reason"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AttendanceCorrection = typeof attendanceCorrections.$inferSelect;
+export type InsertAttendanceCorrection = typeof attendanceCorrections.$inferInsert;

@@ -71,6 +71,13 @@
       "when": 1773773060811,
       "tag": "0009_broken_scrambler",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1775047802258,
+      "tag": "0010_nebulous_famine",
+      "breakpoints": true
     }
   ]
 }

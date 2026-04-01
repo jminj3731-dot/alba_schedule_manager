@@ -1,7 +1,7 @@
 import { eq, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { createPool as mysqlCreatePool } from "mysql2/promise";
-import { InsertUser, users, workers, schedules, notificationLogs, activityLogs, type InsertWorker, type InsertSchedule, type InsertNotificationLog, type InsertActivityLog, type ActivityLog } from "../drizzle/schema";
+import { InsertUser, users, workers, schedules, notificationLogs, activityLogs, appSettings, attendanceCorrections, type InsertWorker, type InsertSchedule, type InsertNotificationLog, type InsertActivityLog, type ActivityLog, type InsertAttendanceCorrection } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -637,4 +637,87 @@ export async function getActivityLogs(filter: ActivityLogFilter = {}): Promise<A
 
   const rows = await query;
   return rows.reverse();
+}
+
+// ============ App Settings ============
+
+export async function getAppSetting(key: string): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(appSettings).where(eq(appSettings.key, key)).limit(1);
+  return result[0]?.value ?? null;
+}
+
+export async function setAppSetting(key: string, value: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(appSettings)
+    .values({ key, value })
+    .onDuplicateKeyUpdate({ set: { value } });
+}
+
+// ============ Attendance Corrections ============
+
+function calcCheckInTimeServer(actualTimeStr: string, scheduledTimeStr: string): string {
+  const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const actualMins = toMins(actualTimeStr);
+  const scheduledMins = toMins(scheduledTimeStr);
+  if (actualMins <= scheduledMins) return scheduledTimeStr;
+  const remainder = actualMins % 30;
+  const ceilMins = remainder === 0 ? actualMins : actualMins + (30 - remainder);
+  const h = Math.floor(ceilMins / 60) % 24;
+  const m = ceilMins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function roundTimeToNearest30MinServer(timeStr: string): string {
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return timeStr;
+  let roundedMinutes = minutes;
+  let roundedHours = hours;
+  if (minutes < 15) roundedMinutes = 0;
+  else if (minutes < 45) roundedMinutes = 30;
+  else { roundedMinutes = 0; roundedHours = (hours + 1) % 24; }
+  return `${String(roundedHours).padStart(2, "0")}:${String(roundedMinutes).padStart(2, "0")}`;
+}
+
+export async function updateScheduleActualTimes(data: {
+  scheduleDate: string;
+  timeSlot: "a" | "b" | "c";
+  correctedCheckInTime?: string;
+  correctedCheckOutTime?: string;
+  scheduledCheckInTime?: string;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getScheduleByDate(data.scheduleDate);
+  if (!existing) throw new Error("Schedule not found for date: " + data.scheduleDate);
+
+  const updateFields: Record<string, string> = {};
+  const slot = data.timeSlot;
+
+  if (data.correctedCheckInTime) {
+    const scheduled = data.scheduledCheckInTime || (slot === "a" ? "17:30" : "18:00");
+    const displayTime = calcCheckInTimeServer(data.correctedCheckInTime, scheduled);
+    if (slot === "a") { updateFields.aTimeActualStartTime = data.correctedCheckInTime; updateFields.aTimeStartTime = displayTime; }
+    else if (slot === "b") { updateFields.bTimeActualStartTime = data.correctedCheckInTime; updateFields.bTimeStartTime = displayTime; }
+    else { updateFields.cTimeActualStartTime = data.correctedCheckInTime; updateFields.cTimeStartTime = displayTime; }
+  }
+
+  if (data.correctedCheckOutTime) {
+    const displayTime = roundTimeToNearest30MinServer(data.correctedCheckOutTime);
+    if (slot === "a") { updateFields.aTimeActualEndTime = data.correctedCheckOutTime; updateFields.aTimeEndTime = displayTime; }
+    else if (slot === "b") { updateFields.bTimeActualEndTime = data.correctedCheckOutTime; updateFields.bTimeEndTime = displayTime; }
+    else { updateFields.cTimeActualEndTime = data.correctedCheckOutTime; updateFields.cTimeEndTime = displayTime; }
+  }
+
+  if (Object.keys(updateFields).length > 0) {
+    await db.update(schedules).set(updateFields).where(eq(schedules.id, existing.id));
+  }
+}
+
+export async function createAttendanceCorrection(data: InsertAttendanceCorrection): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(attendanceCorrections).values(data);
 }

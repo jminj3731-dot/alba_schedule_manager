@@ -456,6 +456,108 @@ export async function sendCheckOutNotifyToAdmin({
 }
 
 /**
+ * 관리자에게 출퇴근 시간 수정 알림 이메일
+ */
+export async function sendAttendanceCorrectionToAdmin({
+  to,
+  workerName,
+  scheduleDate,
+  timeSlot,
+  correctionType,
+  originalCheckInTime,
+  correctedCheckInTime,
+  originalCheckOutTime,
+  correctedCheckOutTime,
+  reason,
+}: {
+  to: string;
+  workerName: string;
+  scheduleDate: string;
+  timeSlot: string;
+  correctionType: "check_in" | "check_out" | "both";
+  originalCheckInTime?: string;
+  correctedCheckInTime?: string;
+  originalCheckOutTime?: string;
+  correctedCheckOutTime?: string;
+  reason: string;
+}) {
+  const formattedDate = formatDate(scheduleDate);
+  const subject = `[대한한우숯불구이] ${workerName}님 출퇴근 시간 수정 알림`;
+
+  const checkInRow = (correctionType === "check_in" || correctionType === "both") ? `
+    <tr>
+      <td style="padding:6px 0;color:#718096;font-size:13px;width:80px;">📥 출근</td>
+      <td style="padding:6px 0;color:#2d3748;font-size:14px;">
+        <span style="text-decoration:line-through;color:#aaa;">${originalCheckInTime || "-"}</span>
+        <span style="margin:0 6px;color:#888;">→</span>
+        <strong style="color:#CC0000;">${correctedCheckInTime || "-"}</strong>
+      </td>
+    </tr>` : "";
+
+  const checkOutRow = (correctionType === "check_out" || correctionType === "both") ? `
+    <tr>
+      <td style="padding:6px 0;color:#718096;font-size:13px;width:80px;">📤 퇴근</td>
+      <td style="padding:6px 0;color:#2d3748;font-size:14px;">
+        <span style="text-decoration:line-through;color:#aaa;">${originalCheckOutTime || "-"}</span>
+        <span style="margin:0 6px;color:#888;">→</span>
+        <strong style="color:#CC0000;">${correctedCheckOutTime || "-"}</strong>
+      </td>
+    </tr>` : "";
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background-color:#ffffff;">
+    <div style="background-color:#2d3748;padding:24px 20px;text-align:center;">
+      <h1 style="color:#ffffff;margin:0;font-size:18px;font-weight:bold;">출퇴근 시간 수정 알림</h1>
+      <p style="color:#a0aec0;margin:6px 0 0;font-size:13px;">대한한우숯불구이 관리자</p>
+    </div>
+    <div style="padding:24px 20px;">
+      <div style="background-color:#f7fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <p style="margin:0 0 12px;font-size:16px;color:#2d3748;font-weight:bold;">
+          👤 ${workerName} · ${timeSlot}타임
+        </p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:6px 0;color:#718096;font-size:13px;width:80px;">📅 날짜</td>
+            <td style="padding:6px 0;color:#2d3748;font-size:14px;">${formattedDate}</td>
+          </tr>
+          ${checkInRow}
+          ${checkOutRow}
+        </table>
+      </div>
+      <div style="background-color:#fff8f0;border:1px solid #fbd38d;border-radius:8px;padding:14px 16px;">
+        <p style="margin:0 0 4px;font-size:12px;color:#744210;font-weight:bold;">📝 수정 사유</p>
+        <p style="margin:0;font-size:14px;color:#744210;">${reason}</p>
+      </div>
+    </div>
+    <div style="background-color:#f5f5f5;padding:16px 20px;text-align:center;border-top:1px solid #eee;">
+      <p style="margin:0;font-size:11px;color:#aaa;">대한한우숯불구이 알바 스케줄 시스템</p>
+    </div>
+  </div>
+</body>
+</html>`.trim();
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [to],
+      subject,
+      html,
+    });
+    return { success: true, id: result.data?.id };
+  } catch (error) {
+    console.error("[Email] Failed to send correction notify to admin:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+/**
  * Resend API 연결 테스트
  */
 export async function testResendConnection(): Promise<boolean> {
