@@ -246,7 +246,7 @@ export async function sendCheckInNowEmail({
 }
 
 /**
- * 퇴근 예정 시간 알림 이메일 (알바생용: "퇴근 버튼을 눈러주세요")
+ * 퇴근 예정 시간 알림 이메일 (알바생용: "퇴근 버튼을 눌러주세요")
  */
 export async function sendCheckOutNowEmail({
   to,
@@ -264,7 +264,7 @@ export async function sendCheckOutNowEmail({
   endTime: string;
 }) {
   const formattedDate = formatDate(scheduleDate);
-  const subject = `[대한한우숙불구이] ${workerName}님, 퇴근 시간입니다! 퇴근 버튼을 눈러주세요 🏁`;
+  const subject = `[대한한우숯불구이] ${workerName}님, 퇴근 시간입니다! 퇴근 버튼을 눌러주세요 🏁`;
 
   const html = `
 <!DOCTYPE html>
@@ -280,13 +280,13 @@ export async function sendCheckOutNowEmail({
     <div style="background-color:#1a1a2e;padding:24px 20px;text-align:center;">
       <div style="font-size:36px;margin-bottom:8px;">🏁</div>
       <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:bold;">퇴근 시간입니다!</h1>
-      <p style="color:#aaaacc;margin:6px 0 0;font-size:13px;">대한한우숙불구이</p>
+      <p style="color:#aaaacc;margin:6px 0 0;font-size:13px;">대한한우숯불구이</p>
     </div>
 
     <!-- 긴급 배너 -->
     <div style="background-color:#e8f4fd;border-left:4px solid #2196F3;padding:14px 20px;">
       <p style="margin:0;font-size:14px;color:#0d47a1;font-weight:bold;">
-        📱 지금 앱에서 퇴근 버튼을 눈러주세요!
+        📱 지금 앱에서 퇴근 버튼을 눌러주세요!
       </p>
     </div>
 
@@ -336,7 +336,7 @@ export async function sendCheckOutNowEmail({
     <!-- Footer -->
     <div style="background-color:#f5f5f5;padding:16px 20px;text-align:center;border-top:1px solid #eee;">
       <p style="margin:0;font-size:11px;color:#aaa;">
-        이 메일은 대한한우숙불구이 알바 스케줄 시스템에서 자동 발송되었습니다.
+        이 메일은 대한한우숯불구이 알바 스케줄 시스템에서 자동 발송되었습니다.
       </p>
     </div>
   </div>
@@ -377,12 +377,12 @@ export async function sendCheckOutNotifyToAdmin({
   actualEndTime: string;
 }) {
   const formattedDate = formatDate(scheduleDate);
-  const subject = `[대한한우숙불구이] ${workerName}님 ${timeSlot}타임 퇴근 완료`;
+  const subject = `[대한한우숯불구이] ${workerName}님 ${timeSlot}타임 퇴근 완료`;
 
   const isLate = actualEndTime > scheduledEndTime;
   const isEarly = actualEndTime < scheduledEndTime;
-  const statusText = isLate ? `⏰ 예정보다 늘게 퇴근 (${scheduledEndTime} → ${actualEndTime})` 
-    : isEarly ? `⚡ 예정보다 일싵 퇴근 (${scheduledEndTime} → ${actualEndTime})`
+  const statusText = isLate ? `⏰ 예정보다 늦게 퇴근 (${scheduledEndTime} → ${actualEndTime})`
+    : isEarly ? `⚡ 예정보다 일찍 퇴근 (${scheduledEndTime} → ${actualEndTime})`
     : `✅ 정시 퇴근 (${actualEndTime})`;
 
   const html = `
@@ -398,7 +398,7 @@ export async function sendCheckOutNotifyToAdmin({
     <!-- Header -->
     <div style="background-color:#2d3748;padding:24px 20px;text-align:center;">
       <h1 style="color:#ffffff;margin:0;font-size:18px;font-weight:bold;">퇴근 완료 알림</h1>
-      <p style="color:#a0aec0;margin:6px 0 0;font-size:13px;">대한한우숙불구이 관리자</p>
+      <p style="color:#a0aec0;margin:6px 0 0;font-size:13px;">대한한우숯불구이 관리자</p>
     </div>
 
     <!-- Content -->
@@ -433,7 +433,7 @@ export async function sendCheckOutNotifyToAdmin({
     <!-- Footer -->
     <div style="background-color:#f5f5f5;padding:16px 20px;text-align:center;border-top:1px solid #eee;">
       <p style="margin:0;font-size:11px;color:#aaa;">
-        대한한우숙불구이 알바 스케줄 시스템
+        대한한우숯불구이 알바 스케줄 시스템
       </p>
     </div>
   </div>

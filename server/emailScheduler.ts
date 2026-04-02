@@ -2,18 +2,63 @@
  * 이메일 알림 스케줄러
  * 매 5분마다 실행:
  *   1) 출근 1시간 전 (55~65분 전): "오늘 근무 1시간 전입니다" 알림
- *   2) 출근 시간 정각 (0~2분 전): "지금 출근 버튼을 눈러주세요!" 알림 (단 한 번)
- *   3) 퇴근 10분 전 (8~10분 전): "퇴근 버튼을 눈러주세요!" 알림
+ *   2) 출근 시간 정각 (0~2분 전): "지금 출근 버튼을 눌러주세요!" 알림 (단 한 번)
+ *   3) 퇴근 10분 전 (8~10분 전): "퇴근 버튼을 눌러주세요!" 알림
  */
-import { getSchedulesByDateRange, getAllWorkers, getDb, resetDbConnection } from "./db";
+import { getSchedulesByDateRange, getAllWorkers, getDb, resetDbConnection, getAppSetting, setAppSetting } from "./db";
 import { sendShiftReminderEmail, sendCheckInNowEmail, sendCheckOutNowEmail } from "./email";
 
-// 이미 발송된 알림 추적 (메모리 캐시, 서버 재시작 시 초기화)
-// key 형식:
-//   `1h_${scheduleDate}_${timeSlot}_${workerId}`       → 1시간 전 알림
-//   `now_${scheduleDate}_${timeSlot}_${workerId}`      → 출근 시간 정각 알림
-//   `checkout_${scheduleDate}_${timeSlot}_${workerId}` → 퇴근 시간 알림
-const sentNotifications = new Set<string>();
+// 서버 재시작 시 초기화되는 메모리 캐시 (빠른 중복 체크용)
+const memCache = new Set<string>();
+
+// 스케줄러 중복 시작 방지
+let schedulerStarted = false;
+
+// DB에서 오늘의 발송 기록 로드
+async function loadSentKeys(today: string): Promise<void> {
+  try {
+    const raw = await getAppSetting(`email_sent_${today}`);
+    if (raw) {
+      const keys: string[] = JSON.parse(raw);
+      keys.forEach(k => memCache.add(k));
+    }
+  } catch {
+    // 로드 실패 시 무시 (발송 중복보다 누락이 낫지 않으므로 계속 진행)
+  }
+}
+
+// 발송 완료 키를 DB에 저장
+async function markSent(key: string, today: string): Promise<void> {
+  memCache.add(key);
+  try {
+    const raw = await getAppSetting(`email_sent_${today}`);
+    const keys: string[] = raw ? JSON.parse(raw) : [];
+    if (!keys.includes(key)) {
+      keys.push(key);
+      await setAppSetting(`email_sent_${today}`, JSON.stringify(keys));
+    }
+  } catch {
+    // DB 저장 실패 시 메모리 캐시만 유지
+  }
+}
+
+// 이미 발송됐는지 확인 (메모리 우선, 없으면 DB 확인)
+async function isSent(key: string, today: string): Promise<boolean> {
+  if (memCache.has(key)) return true;
+  try {
+    const raw = await getAppSetting(`email_sent_${today}`);
+    if (raw) {
+      const keys: string[] = JSON.parse(raw);
+      if (keys.includes(key)) {
+        memCache.add(key); // 메모리에도 캐싱
+        return true;
+      }
+    }
+  } catch {
+    // DB 확인 실패 시 메모리 캐시 기준
+  }
+  return false;
+}
 
 // 한국 시간 기준 현재 날짜/시간 반환
 function getKSTNow(): Date {
@@ -42,7 +87,7 @@ const DEFAULT_START_TIMES: Record<string, string> = {
 const DEFAULT_END_TIMES: Record<string, string> = {
   a: "22:00",
   b: "22:00",
-  c: "23:00",
+  c: "22:00",
 };
 
 /**
@@ -81,6 +126,9 @@ export async function checkAndSendShiftReminders(): Promise<void> {
   try {
     const today = getKSTDateString();
     const currentTime = getKSTTimeString();
+
+    // 오늘의 발송 기록 DB에서 로드 (서버 재시작 후 첫 실행 시)
+    await loadSentKeys(today);
 
     // 오늘 스케줄 조회
     const todaySchedules = await getSchedulesByDateRange(today, today);
@@ -121,7 +169,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
 
       // ── 1시간 전 알림 (55~65분 전) ──
       const key1h = `1h_${today}_${slot}_${workerId}`;
-      if (diff >= 55 && diff <= 65 && !sentNotifications.has(key1h)) {
+      if (diff >= 55 && diff <= 65 && !(await isSent(key1h, today))) {
         console.log(`[EmailScheduler] Sending 1h reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${startTime}`);
         const result = await sendShiftReminderEmail({
           to: worker.email,
@@ -132,7 +180,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
           endTime,
         });
         if (result.success) {
-          sentNotifications.add(key1h);
+          await markSent(key1h, today);
           console.log(`[EmailScheduler] ✅ 1h reminder sent to ${worker.name}, id: ${result.id}`);
         } else {
           console.error(`[EmailScheduler] ❌ 1h reminder failed for ${worker.name}: ${result.error}`);
@@ -141,7 +189,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
 
       // ── 출근 시간 정각 알림 (0~2분 전, 단 한 번) ──
       const keyNow = `now_${today}_${slot}_${workerId}`;
-      if (diff >= 0 && diff <= 2 && !sentNotifications.has(keyNow)) {
+      if (diff >= 0 && diff <= 2 && !(await isSent(keyNow, today))) {
         console.log(`[EmailScheduler] Sending check-in now reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${startTime}`);
         const result = await sendCheckInNowEmail({
           to: worker.email,
@@ -152,7 +200,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
           endTime,
         });
         if (result.success) {
-          sentNotifications.add(keyNow);
+          await markSent(keyNow, today);
           console.log(`[EmailScheduler] ✅ Check-in now reminder sent to ${worker.name}, id: ${result.id}`);
         } else {
           console.error(`[EmailScheduler] ❌ Check-in now reminder failed for ${worker.name}: ${result.error}`);
@@ -165,7 +213,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
       if (!schedule[actualEndKey]) {
         const endDiff = minutesDiff(endTime, currentTime); // 퇴근시간 - 현재시간 (양수 = 남은 분)
         const keyCheckout = `checkout_${today}_${slot}_${workerId}`;
-        if (endDiff >= 8 && endDiff <= 10 && !sentNotifications.has(keyCheckout)) {
+        if (endDiff >= 8 && endDiff <= 10 && !(await isSent(keyCheckout, today))) {
           console.log(`[EmailScheduler] Sending check-out reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${endTime}`);
           const result = await sendCheckOutNowEmail({
             to: worker.email,
@@ -176,7 +224,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
             endTime,
           });
           if (result.success) {
-            sentNotifications.add(keyCheckout);
+            await markSent(keyCheckout, today);
             console.log(`[EmailScheduler] ✅ Check-out reminder sent to ${worker.name}, id: ${result.id}`);
           } else {
             console.error(`[EmailScheduler] ❌ Check-out reminder failed for ${worker.name}: ${result.error}`);
@@ -198,11 +246,17 @@ export async function checkAndSendShiftReminders(): Promise<void> {
  * 스케줄러 시작 (매 5분마다 실행)
  */
 export function startEmailScheduler(): void {
+  if (schedulerStarted) {
+    console.log("[EmailScheduler] Already started, skipping duplicate start");
+    return;
+  }
+
   if (!process.env.RESEND_API_KEY) {
     console.log("[EmailScheduler] RESEND_API_KEY not set, email scheduler disabled");
     return;
   }
 
+  schedulerStarted = true;
   console.log("[EmailScheduler] Starting email reminder scheduler (every 5 minutes)");
   console.log("[EmailScheduler] Alerts: 1h before shift + at shift start time + at shift end time");
 
