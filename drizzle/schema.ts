@@ -66,30 +66,40 @@ export const schedules = mysqlTable("schedules", {
   bTimeWorkerId: int("bTimeWorkerId"),
   /** C타임 배정 알바생 ID (nullable, 주말만 사용) */
   cTimeWorkerId: int("cTimeWorkerId"),
+  /** D타임 배정 알바생 ID (nullable, 수습 추가 배정용) */
+  dTimeWorkerId: int("dTimeWorkerId"),
   /** A타임 출근 시간 (예: "17:30", nullable = 기본값 사용) */
   aTimeStartTime: varchar("aTimeStartTime", { length: 10 }),
   /** B타임 출근 시간 (예: "18:00", nullable = 기본값 사용) */
   bTimeStartTime: varchar("bTimeStartTime", { length: 10 }),
   /** C타임 출근 시간 (예: "18:00", nullable = 기본값 사용) */
   cTimeStartTime: varchar("cTimeStartTime", { length: 10 }),
+  /** D타임 출근 시간 */
+  dTimeStartTime: varchar("dTimeStartTime", { length: 10 }),
   /** A타임 퇴근 시간 (예: "22:00", nullable = 기본값 사용) */
   aTimeEndTime: varchar("aTimeEndTime", { length: 10 }),
   /** B타임 퇴근 시간 (예: "22:00", nullable = 기본값 사용) */
   bTimeEndTime: varchar("bTimeEndTime", { length: 10 }),
   /** C타임 퇴근 시간 (예: "22:00", nullable = 기본값 사용) */
   cTimeEndTime: varchar("cTimeEndTime", { length: 10 }),
+  /** D타임 퇴근 시간 */
+  dTimeEndTime: varchar("dTimeEndTime", { length: 10 }),
   /** A타임 실제 출근 시간 (알바생이 실제로 입력한 시간, 예: "17:23") */
   aTimeActualStartTime: varchar("aTimeActualStartTime", { length: 10 }),
   /** B타임 실제 출근 시간 */
   bTimeActualStartTime: varchar("bTimeActualStartTime", { length: 10 }),
   /** C타임 실제 출근 시간 */
   cTimeActualStartTime: varchar("cTimeActualStartTime", { length: 10 }),
+  /** D타임 실제 출근 시간 */
+  dTimeActualStartTime: varchar("dTimeActualStartTime", { length: 10 }),
   /** A타임 실제 퇴근 시간 (알바생이 실제로 입력한 시간, 예: "22:17") */
   aTimeActualEndTime: varchar("aTimeActualEndTime", { length: 10 }),
   /** B타임 실제 퇴근 시간 */
   bTimeActualEndTime: varchar("bTimeActualEndTime", { length: 10 }),
   /** C타임 실제 퇴근 시간 */
   cTimeActualEndTime: varchar("cTimeActualEndTime", { length: 10 }),
+  /** D타임 실제 퇴근 시간 */
+  dTimeActualEndTime: varchar("dTimeActualEndTime", { length: 10 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

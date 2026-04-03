@@ -136,6 +136,7 @@ export const appRouter = router({
         aTimeWorkerId: z.number().nullable(),
         bTimeWorkerId: z.number().nullable(),
         cTimeWorkerId: z.number().nullable(),
+        dTimeWorkerId: z.number().nullable().optional(),
       }))
       .mutation(async ({ input }) => {
         return upsertSchedule(input);
@@ -144,7 +145,7 @@ export const appRouter = router({
     updateEndTime: publicProcedure
       .input(z.object({
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c"]),
+        timeSlot: z.enum(["a", "b", "c", "d"]),
         endTime: z.string(),
         actualEndTime: z.string().optional(),
       }))
@@ -155,7 +156,7 @@ export const appRouter = router({
     updateTime: publicProcedure
       .input(z.object({
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c"]),
+        timeSlot: z.enum(["a", "b", "c", "d"]),
         startTime: z.string().optional(),
         endTime: z.string().optional(),
       }))

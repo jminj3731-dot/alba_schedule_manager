@@ -76,12 +76,15 @@ interface ScheduleRow {
   aTimeWorkerId: number | null;
   bTimeWorkerId: number | null;
   cTimeWorkerId: number | null;
+  dTimeWorkerId?: number | null;
   aTimeStartTime?: string | null;
   bTimeStartTime?: string | null;
   cTimeStartTime?: string | null;
+  dTimeStartTime?: string | null;
   aTimeEndTime?: string | null;
   bTimeEndTime?: string | null;
   cTimeEndTime?: string | null;
+  dTimeEndTime?: string | null;
 }
 
 function validateRow(row: ScheduleRow, workers: any[]): { type: string; message: string }[] {
@@ -126,6 +129,7 @@ export default function Master() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [autoAssignDialogOpen, setAutoAssignDialogOpen] = useState(false);
   const [expandedCSlots, setExpandedCSlots] = useState<Set<string>>(new Set());
+  const [expandedDSlots, setExpandedDSlots] = useState<Set<string>>(new Set());
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
   const startDate = weekDates[0].dateStr;
@@ -183,9 +187,12 @@ export default function Master() {
             aTimeStartTime: (existing as any).aTimeStartTime,
             bTimeStartTime: (existing as any).bTimeStartTime,
             cTimeStartTime: (existing as any).cTimeStartTime,
+            dTimeStartTime: (existing as any).dTimeStartTime,
             aTimeEndTime: (existing as any).aTimeEndTime,
             bTimeEndTime: (existing as any).bTimeEndTime,
             cTimeEndTime: (existing as any).cTimeEndTime,
+            dTimeEndTime: (existing as any).dTimeEndTime,
+            dTimeWorkerId: (existing as any).dTimeWorkerId ?? null,
           }
         : {
             scheduleDate: d.dateStr,
@@ -194,6 +201,7 @@ export default function Master() {
             aTimeWorkerId: null,
             bTimeWorkerId: null,
             cTimeWorkerId: null,
+            dTimeWorkerId: null,
           };
     }
     return map;
@@ -210,6 +218,7 @@ export default function Master() {
       aTimeWorkerId: row.aTimeWorkerId,
       bTimeWorkerId: row.bTimeWorkerId,
       cTimeWorkerId: row.cTimeWorkerId,
+      dTimeWorkerId: row.dTimeWorkerId ?? null,
     });
     // 알바생 기본 시간이 있으면 자동 세팅
     if (workerDefaultTimes && (workerDefaultTimes.startTime || workerDefaultTimes.endTime)) {
@@ -222,7 +231,7 @@ export default function Master() {
     }
   }
 
-  function handleUpdateTime(dateStr: string, timeSlot: "a" | "b" | "c", startTime?: string, endTime?: string) {
+  function handleUpdateTime(dateStr: string, timeSlot: "a" | "b" | "c" | "d", startTime?: string, endTime?: string) {
     updateTimeMutation.mutate({ scheduleDate: dateStr, timeSlot, startTime, endTime });
   }
 
@@ -349,7 +358,8 @@ export default function Master() {
                         }}
                         onTimeChange={handleUpdateTime}
                       />
-                      {(row.cTimeWorkerId !== null && row.cTimeWorkerId !== undefined) || expandedCSlots.has(d.dateStr) ? (
+                      {/* C타임: 금/토 기본 표시, 평일은 + 버튼 */}
+                      {isWeekend || row.cTimeWorkerId || expandedCSlots.has(d.dateStr) ? (
                         <TimeSlotRow
                           label="C"
                           timeSlot="c"
@@ -363,13 +373,13 @@ export default function Master() {
                           onWorkerChange={(id) => {
                             const w = workers.find((w) => w.id === id);
                             saveSchedule(d.dateStr, { cTimeWorkerId: id }, w?.defaultStartTime || w?.defaultEndTime ? { slot: "c", startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
-                            if (!id) setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                            if (!id && !isWeekend) setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
                           }}
                           onTimeChange={handleUpdateTime}
-                          onRemove={() => {
+                          onRemove={!isWeekend ? () => {
                             saveSchedule(d.dateStr, { cTimeWorkerId: null });
                             setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
-                          }}
+                          } : undefined}
                         />
                       ) : (
                         <button
@@ -378,6 +388,39 @@ export default function Master() {
                         >
                           <Plus className="w-3 h-3" />
                           C타임 추가
+                        </button>
+                      )}
+
+                      {/* D타임: 모든 요일에 수습 추가 슬롯 */}
+                      {row.dTimeWorkerId || expandedDSlots.has(d.dateStr) ? (
+                        <TimeSlotRow
+                          label="D"
+                          timeSlot="d"
+                          startTime={row.dTimeStartTime || "18:00"}
+                          endTime={row.dTimeEndTime || "21:00"}
+                          workerId={row.dTimeWorkerId ?? null}
+                          workers={workers}
+                          dayOfWeek={d.dayName}
+                          scheduleDate={d.dateStr}
+                          hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
+                          onWorkerChange={(id) => {
+                            const w = workers.find((w) => w.id === id);
+                            saveSchedule(d.dateStr, { dTimeWorkerId: id }, w?.defaultStartTime || w?.defaultEndTime ? { slot: "d", startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
+                            if (!id) setExpandedDSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                          }}
+                          onTimeChange={handleUpdateTime}
+                          onRemove={() => {
+                            saveSchedule(d.dateStr, { dTimeWorkerId: null });
+                            setExpandedDSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                          }}
+                        />
+                      ) : (
+                        <button
+                          onClick={() => setExpandedDSlots((prev) => new Set(prev).add(d.dateStr))}
+                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground border border-dashed border-border/50 hover:border-border rounded-md px-2 py-1.5 w-full transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          수습 추가
                         </button>
                       )}
                     </div>
@@ -468,7 +511,7 @@ function TimeSlotRow({
   onRemove,
 }: {
   label: string;
-  timeSlot: "a" | "b" | "c";
+  timeSlot: "a" | "b" | "c" | "d";
   startTime: string;
   endTime: string;
   workerId: number | null;
@@ -477,7 +520,7 @@ function TimeSlotRow({
   scheduleDate: string;
   hasSchedule: boolean;
   onWorkerChange: (id: number | null) => void;
-  onTimeChange: (dateStr: string, slot: "a" | "b" | "c", startTime?: string, endTime?: string) => void;
+  onTimeChange: (dateStr: string, slot: "a" | "b" | "c" | "d", startTime?: string, endTime?: string) => void;
   onRemove?: () => void;
 }) {
   const [startOpen, setStartOpen] = useState(false);

@@ -221,6 +221,7 @@ export async function upsertSchedule(data: {
   aTimeWorkerId: number | null;
   bTimeWorkerId: number | null;
   cTimeWorkerId: number | null;
+  dTimeWorkerId?: number | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -235,12 +236,12 @@ export async function upsertSchedule(data: {
       bTimeWorkerId: data.bTimeWorkerId,
       cTimeWorkerId: data.cTimeWorkerId,
     };
+    if (data.dTimeWorkerId !== undefined) updateFields.dTimeWorkerId = data.dTimeWorkerId;
     // A타임: 담당자가 있는데 시간이 없으면 기본값 채우기
     if (data.aTimeWorkerId && !existing.aTimeStartTime) {
       updateFields.aTimeStartTime = DEFAULT_TIMES.a.start;
       updateFields.aTimeEndTime = DEFAULT_TIMES.a.end;
     }
-    // A타임: 담당자가 제거되면 시간도 초기화
     if (!data.aTimeWorkerId) {
       updateFields.aTimeStartTime = null;
       updateFields.aTimeEndTime = null;
@@ -255,13 +256,24 @@ export async function upsertSchedule(data: {
       updateFields.bTimeEndTime = null;
     }
     // C타임
-    if (data.cTimeWorkerId && !existing.cTimeStartTime) {
+    if (data.cTimeWorkerId && !(existing as any).cTimeStartTime) {
       updateFields.cTimeStartTime = DEFAULT_TIMES.c.start;
       updateFields.cTimeEndTime = DEFAULT_TIMES.c.end;
     }
     if (!data.cTimeWorkerId) {
       updateFields.cTimeStartTime = null;
       updateFields.cTimeEndTime = null;
+    }
+    // D타임
+    if (data.dTimeWorkerId !== undefined) {
+      if (data.dTimeWorkerId && !(existing as any).dTimeStartTime) {
+        updateFields.dTimeStartTime = DEFAULT_TIMES.c.start;
+        updateFields.dTimeEndTime = DEFAULT_TIMES.c.end;
+      }
+      if (!data.dTimeWorkerId) {
+        updateFields.dTimeStartTime = null;
+        updateFields.dTimeEndTime = null;
+      }
     }
     await db.update(schedules).set(updateFields as any).where(eq(schedules.id, existing.id));
     return { id: existing.id };
@@ -274,13 +286,16 @@ export async function upsertSchedule(data: {
       aTimeWorkerId: data.aTimeWorkerId,
       bTimeWorkerId: data.bTimeWorkerId,
       cTimeWorkerId: data.cTimeWorkerId,
+      dTimeWorkerId: data.dTimeWorkerId ?? null,
       aTimeStartTime: data.aTimeWorkerId ? DEFAULT_TIMES.a.start : null,
       aTimeEndTime: data.aTimeWorkerId ? DEFAULT_TIMES.a.end : null,
       bTimeStartTime: data.bTimeWorkerId ? DEFAULT_TIMES.b.start : null,
       bTimeEndTime: data.bTimeWorkerId ? DEFAULT_TIMES.b.end : null,
       cTimeStartTime: data.cTimeWorkerId ? DEFAULT_TIMES.c.start : null,
       cTimeEndTime: data.cTimeWorkerId ? DEFAULT_TIMES.c.end : null,
-    });
+      dTimeStartTime: data.dTimeWorkerId ? DEFAULT_TIMES.c.start : null,
+      dTimeEndTime: data.dTimeWorkerId ? DEFAULT_TIMES.c.end : null,
+    } as any);
     return { id: result[0].insertId };
   }
 }
@@ -327,7 +342,7 @@ export async function updateScheduleEndTime(data: {
 
 export async function updateScheduleTime(data: {
   scheduleDate: string;
-  timeSlot: "a" | "b" | "c";
+  timeSlot: "a" | "b" | "c" | "d";
   startTime?: string;
   endTime?: string;
   actualStartTime?: string;
@@ -341,29 +356,32 @@ export async function updateScheduleTime(data: {
   if (data.startTime !== undefined) {
     if (data.timeSlot === "a") updateField.aTimeStartTime = data.startTime;
     else if (data.timeSlot === "b") updateField.bTimeStartTime = data.startTime;
-    else updateField.cTimeStartTime = data.startTime;
+    else if (data.timeSlot === "c") updateField.cTimeStartTime = data.startTime;
+    else updateField.dTimeStartTime = data.startTime;
   }
   if (data.endTime !== undefined) {
     if (data.timeSlot === "a") updateField.aTimeEndTime = data.endTime;
     else if (data.timeSlot === "b") updateField.bTimeEndTime = data.endTime;
-    else updateField.cTimeEndTime = data.endTime;
+    else if (data.timeSlot === "c") updateField.cTimeEndTime = data.endTime;
+    else updateField.dTimeEndTime = data.endTime;
   }
   if (data.actualStartTime !== undefined) {
     if (data.timeSlot === "a") updateField.aTimeActualStartTime = data.actualStartTime;
     else if (data.timeSlot === "b") updateField.bTimeActualStartTime = data.actualStartTime;
-    else updateField.cTimeActualStartTime = data.actualStartTime;
+    else if (data.timeSlot === "c") updateField.cTimeActualStartTime = data.actualStartTime;
+    else updateField.dTimeActualStartTime = data.actualStartTime;
   }
 
   if (Object.keys(updateField).length === 0) return { success: true, workerName: null };
-  await db.update(schedules).set(updateField).where(eq(schedules.id, existing.id));
+  await db.update(schedules).set(updateField as any).where(eq(schedules.id, existing.id));
 
-  // 알림용 workerName 조회
   let workerName: string | null = null;
   try {
     const workerId =
       data.timeSlot === "a" ? existing.aTimeWorkerId
       : data.timeSlot === "b" ? existing.bTimeWorkerId
-      : existing.cTimeWorkerId;
+      : data.timeSlot === "c" ? existing.cTimeWorkerId
+      : (existing as any).dTimeWorkerId;
     if (workerId) {
       const w = await getWorkerById(workerId);
       workerName = w?.name ?? null;
@@ -506,6 +524,7 @@ async function buildStats(allWorkers: any[], rangeSchedules: any[]): Promise<Mon
       { slot: "a", workerId: s.aTimeWorkerId, start: (s as any).aTimeStartTime || "17:30", end: (s as any).aTimeEndTime || "22:00" },
       { slot: "b", workerId: s.bTimeWorkerId, start: (s as any).bTimeStartTime || "18:00", end: (s as any).bTimeEndTime || "22:00" },
       { slot: "c", workerId: s.cTimeWorkerId, start: (s as any).cTimeStartTime || "18:00", end: (s as any).cTimeEndTime || "22:00" },
+      { slot: "d", workerId: (s as any).dTimeWorkerId, start: (s as any).dTimeStartTime || "18:00", end: (s as any).dTimeEndTime || "21:00" },
     ];
 
     for (const { slot, workerId, start, end } of slots) {
