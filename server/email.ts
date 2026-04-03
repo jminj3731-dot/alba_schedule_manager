@@ -570,6 +570,159 @@ export async function sendAttendanceCorrectionToAdmin({
 }
 
 /**
+ * 급여일 전날 급여 내역 이메일 발송
+ */
+export async function sendPaydayEveEmail({
+  to,
+  workerName,
+  payDay,
+  periodStart,
+  periodEnd,
+  workDays,
+  totalMinutes,
+  hourlyWage,
+  totalPay,
+  breakdown,
+}: {
+  to: string;
+  workerName: string;
+  payDay: number;
+  periodStart: string;
+  periodEnd: string;
+  workDays: number;
+  totalMinutes: number;
+  hourlyWage: number;
+  totalPay: number;
+  breakdown: { date: string; dayOfWeek: string; timeSlot: string; startTime: string; endTime: string; minutes: number }[];
+}) {
+  const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
+  const subject = `[대한한우숯불구이] ${workerName}님, 내일 급여일입니다 🎉 이번 달 급여 내역 안내`;
+
+  const breakdownRows = breakdown.map((d) => {
+    const h = Math.floor(d.minutes / 60);
+    const m = d.minutes % 60;
+    const timeStr = m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+    return `
+      <tr style="border-bottom:1px solid #f0f0f0;">
+        <td style="padding:8px 6px;font-size:12px;color:#555;">${d.date.slice(5).replace("-", "/")}</td>
+        <td style="padding:8px 6px;font-size:12px;color:#555;text-align:center;">${d.dayOfWeek}</td>
+        <td style="padding:8px 6px;font-size:12px;color:#555;text-align:center;">${d.timeSlot}타임</td>
+        <td style="padding:8px 6px;font-size:12px;color:#555;text-align:center;">${d.startTime}~${d.endTime}</td>
+        <td style="padding:8px 6px;font-size:12px;color:#333;font-weight:500;text-align:right;">${timeStr}</td>
+      </tr>`;
+  }).join("");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background-color:#ffffff;">
+    <!-- Header -->
+    <div style="background-color:#CC0000;padding:28px 24px;text-align:center;">
+      <div style="font-size:40px;margin-bottom:8px;">💰</div>
+      <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:bold;">이번 달 수고 많으셨어요!</h1>
+      <p style="color:#ffcccc;margin:8px 0 0;font-size:14px;">내일(${payDay}일) 급여가 지급됩니다</p>
+    </div>
+
+    <!-- 인사말 -->
+    <div style="padding:24px 24px 0;">
+      <p style="font-size:16px;color:#333;margin:0 0 4px;">
+        <strong style="color:#CC0000;">${workerName}</strong>님, 안녕하세요! 👋
+      </p>
+      <p style="font-size:14px;color:#666;margin:0;line-height:1.6;">
+        이번 달 근무 기간(<strong>${periodStart} ~ ${periodEnd}</strong>)의 급여 내역을 알려드립니다.
+      </p>
+    </div>
+
+    <!-- 핵심 수치 -->
+    <div style="padding:20px 24px;">
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <div style="flex:1;text-align:center;padding:16px 8px;background-color:#f8f8f8;border-radius:12px;">
+          <p style="margin:0 0 4px;font-size:11px;color:#888;">근무일수</p>
+          <p style="margin:0;font-size:24px;font-weight:bold;color:#333;">${workDays}</p>
+          <p style="margin:0;font-size:11px;color:#888;">일</p>
+        </div>
+        <div style="flex:1;text-align:center;padding:16px 8px;background-color:#f8f8f8;border-radius:12px;">
+          <p style="margin:0 0 4px;font-size:11px;color:#888;">총 근무시간</p>
+          <p style="margin:0;font-size:24px;font-weight:bold;color:#333;">${totalHours}</p>
+          <p style="margin:0;font-size:11px;color:#888;">시간</p>
+        </div>
+        <div style="flex:1;text-align:center;padding:16px 8px;background-color:#f8f8f8;border-radius:12px;">
+          <p style="margin:0 0 4px;font-size:11px;color:#888;">시급</p>
+          <p style="margin:0;font-size:20px;font-weight:bold;color:#333;">${hourlyWage.toLocaleString()}</p>
+          <p style="margin:0;font-size:11px;color:#888;">원</p>
+        </div>
+      </div>
+
+      <!-- 총 급여 강조 -->
+      <div style="background-color:#fff8f0;border:2px solid #CC0000;border-radius:14px;padding:20px;text-align:center;margin-bottom:20px;">
+        <p style="margin:0 0 6px;font-size:13px;color:#888;">이번 달 예상 총 급여</p>
+        <p style="margin:0;font-size:32px;font-weight:bold;color:#CC0000;">${totalPay.toLocaleString()}원</p>
+        <p style="margin:6px 0 0;font-size:12px;color:#aaa;">${totalHours}h × ${hourlyWage.toLocaleString()}원</p>
+      </div>
+
+      <!-- 근무 상세 내역 -->
+      ${breakdown.length > 0 ? `
+      <div style="border:1px solid #eee;border-radius:10px;overflow:hidden;">
+        <div style="background-color:#f5f5f5;padding:10px 16px;">
+          <p style="margin:0;font-size:13px;font-weight:bold;color:#333;">📋 근무 상세 내역</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background-color:#fafafa;">
+              <th style="padding:8px 6px;font-size:11px;color:#888;font-weight:500;text-align:left;">날짜</th>
+              <th style="padding:8px 6px;font-size:11px;color:#888;font-weight:500;text-align:center;">요일</th>
+              <th style="padding:8px 6px;font-size:11px;color:#888;font-weight:500;text-align:center;">타임</th>
+              <th style="padding:8px 6px;font-size:11px;color:#888;font-weight:500;text-align:center;">시간대</th>
+              <th style="padding:8px 6px;font-size:11px;color:#888;font-weight:500;text-align:right;">근무시간</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${breakdownRows}
+          </tbody>
+        </table>
+      </div>
+      ` : '<p style="text-align:center;color:#aaa;font-size:13px;">이번 기간 근무 기록이 없습니다.</p>'}
+    </div>
+
+    <!-- 푸터 메시지 -->
+    <div style="padding:0 24px 24px;">
+      <p style="font-size:13px;color:#999;margin:0;text-align:center;line-height:1.8;">
+        이번 달도 정말 수고 많으셨습니다! 💪<br>
+        급여 관련 문의는 사장님께 연락해 주세요.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color:#f5f5f5;padding:16px 20px;text-align:center;border-top:1px solid #eee;">
+      <p style="margin:0;font-size:11px;color:#aaa;">
+        이 메일은 대한한우숯불구이 알바 스케줄 시스템에서 자동 발송되었습니다.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`.trim();
+
+  try {
+    const transporter = createTransporter();
+    const result = await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: [to],
+      subject,
+      html,
+    });
+    return { success: true, id: result.messageId };
+  } catch (error) {
+    console.error("[Email] Failed to send payday eve email:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+/**
  * Gmail SMTP 연결 테스트
  */
 export async function testResendConnection(): Promise<boolean> {

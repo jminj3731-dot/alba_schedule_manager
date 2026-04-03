@@ -62,6 +62,7 @@ export default function Settings() {
   const [formEmail, setFormEmail] = useState<string>("");
   const [formDefaultStartTime, setFormDefaultStartTime] = useState<string>("");
   const [formDefaultEndTime, setFormDefaultEndTime] = useState<string>("");
+  const [formHourlyWage, setFormHourlyWage] = useState<string>("");
 
   const utils = trpc.useUtils();
   const { data: workers = [], isLoading } = trpc.workers.list.useQuery();
@@ -139,6 +140,7 @@ export default function Settings() {
     setFormEmail("");
     setFormDefaultStartTime("");
     setFormDefaultEndTime("");
+    setFormHourlyWage("");
     setEditingWorker(null);
     setDialogOpen(false);
   }
@@ -153,6 +155,7 @@ export default function Settings() {
     setFormEmail(worker.email ?? "");
     setFormDefaultStartTime(worker.defaultStartTime ?? "");
     setFormDefaultEndTime(worker.defaultEndTime ?? "");
+    setFormHourlyWage(worker.hourlyWage ? String(worker.hourlyWage) : "");
     setDialogOpen(true);
   }
 
@@ -171,6 +174,7 @@ export default function Settings() {
     const emailVal = formEmail.trim() || null;
     const defaultStartVal = formDefaultStartTime.trim() || null;
     const defaultEndVal = formDefaultEndTime.trim() || null;
+    const hourlyWageVal = formHourlyWage ? parseInt(formHourlyWage.replace(/,/g, ""), 10) || null : null;
     if (editingWorker) {
       updateMutation.mutate({
         id: editingWorker.id,
@@ -180,6 +184,7 @@ export default function Settings() {
         preferredDays: preferredStr,
         payDay: formPayDay,
         email: emailVal,
+        hourlyWage: hourlyWageVal,
         defaultStartTime: defaultStartVal,
         defaultEndTime: defaultEndVal,
       });
@@ -191,6 +196,7 @@ export default function Settings() {
         preferredDays: preferredStr,
         payDay: formPayDay,
         email: emailVal,
+        hourlyWage: hourlyWageVal,
         defaultStartTime: defaultStartVal,
         defaultEndTime: defaultEndVal,
       });
@@ -431,6 +437,26 @@ export default function Settings() {
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
+                  시급
+                  <span className="text-[10px] text-muted-foreground font-normal">(급여 자동 계산 및 급여일 전날 이메일 발송용)</span>
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={formHourlyWage}
+                    onChange={(e) => setFormHourlyWage(e.target.value)}
+                    className="bg-secondary/50 w-32"
+                    placeholder="10030"
+                  />
+                  <span className="text-sm text-muted-foreground">원</span>
+                  {formHourlyWage && (
+                    <span className="text-xs text-primary">{Number(formHourlyWage).toLocaleString()}원</span>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
                   이메일
                   <span className="text-[10px] text-muted-foreground font-normal">(출근 예정 알림 수신용, 선택)</span>
                 </Label>
@@ -613,11 +639,19 @@ function WorkerRow({
             ))}
           </div>
         )}
-        <div className="flex items-center gap-1 mt-1">
+        <div className="flex items-center gap-1 mt-1 flex-wrap">
           <span className="text-[10px] text-muted-foreground">급여일:</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
             매월 {worker.payDay ?? 14}일
           </span>
+          {worker.hourlyWage && (
+            <>
+              <span className="text-[10px] text-muted-foreground ml-1">시급:</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400">
+                {Number(worker.hourlyWage).toLocaleString()}원
+              </span>
+            </>
+          )}
         </div>
         {worker.email && (
           <div className="flex items-center gap-1 mt-1">

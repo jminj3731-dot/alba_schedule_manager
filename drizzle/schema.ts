@@ -34,6 +34,8 @@ export const workers = mysqlTable("workers", {
   payDay: int("payDay").default(14),
   /** 이메일 주소 (출근 예정 알림 발송용) */
   email: varchar("email", { length: 320 }),
+  /** 시급 (원, 급여 계산용) */
+  hourlyWage: int("hourlyWage"),
   /** 기본 출근 시간 (예: "18:00", Master에서 배정 시 자동 세팅) */
   defaultStartTime: varchar("defaultStartTime", { length: 10 }),
   /** 기본 퇴근 시간 (예: "21:00", Master에서 배정 시 자동 세팅) */

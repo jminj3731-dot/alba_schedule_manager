@@ -73,6 +73,7 @@ export const appRouter = router({
         preferredDays: z.string().default(""),
         payDay: z.number().min(1).max(31).default(14),
         email: z.string().email().optional().nullable(),
+        hourlyWage: z.number().int().min(0).optional().nullable(),
         defaultStartTime: z.string().optional().nullable(),
         defaultEndTime: z.string().optional().nullable(),
       }))
@@ -89,6 +90,7 @@ export const appRouter = router({
         preferredDays: z.string().optional(),
         payDay: z.number().min(1).max(31).optional(),
         email: z.string().email().optional().nullable(),
+        hourlyWage: z.number().int().min(0).optional().nullable(),
         defaultStartTime: z.string().optional().nullable(),
         defaultEndTime: z.string().optional().nullable(),
       }))

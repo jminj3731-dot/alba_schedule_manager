@@ -172,10 +172,12 @@ export default function PayCalculator() {
                   const id = Number(v);
                   setSelectedWorkerId(id);
                   setCalculated(false);
-                  // 알바생의 급여일 자동 적용
                   const worker = workers.find((w) => w.id === id);
-                  if (worker?.payDay) {
-                    setPayDay(worker.payDay);
+                  if (worker?.payDay) setPayDay(worker.payDay);
+                  if ((worker as any)?.hourlyWage) {
+                    setHourlyWage((worker as any).hourlyWage);
+                    setIsCustom(false);
+                    setCustomWage("");
                   }
                 }}
               >
@@ -188,7 +190,7 @@ export default function PayCalculator() {
                       <span className="flex items-center gap-2">
                         {w.name}
                         <Badge variant="outline" className="text-[10px] h-4">
-                          {w.skillLevel === "main" ? "메인" : "서브"}
+                          {w.skillLevel === "main" ? "메인" : w.skillLevel === "trainee" ? "수습" : "서브"}
                         </Badge>
                       </span>
                     </SelectItem>

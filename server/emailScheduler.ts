@@ -5,8 +5,8 @@
  *   2) 출근 시간 정각 (0~2분 전): "지금 출근 버튼을 눌러주세요!" 알림 (단 한 번)
  *   3) 퇴근 10분 전 (8~10분 전): "퇴근 버튼을 눌러주세요!" 알림
  */
-import { getSchedulesByDateRange, getAllWorkers, getDb, resetDbConnection, getAppSetting, setAppSetting } from "./db";
-import { sendShiftReminderEmail, sendCheckInNowEmail, sendCheckOutNowEmail } from "./email";
+import { getSchedulesByDateRange, getAllWorkers, getDb, resetDbConnection, getAppSetting, setAppSetting, getStatsByDateRange } from "./db";
+import { sendShiftReminderEmail, sendCheckInNowEmail, sendCheckOutNowEmail, sendPaydayEveEmail } from "./email";
 
 // 서버 재시작 시 초기화되는 메모리 캐시 (빠른 중복 체크용)
 const memCache = new Set<string>();
@@ -243,6 +243,87 @@ export async function checkAndSendShiftReminders(): Promise<void> {
 }
 
 /**
+ * KST 기준 내일 날짜의 day (1~31) 반환
+ */
+function getKSTTomorrowDay(): number {
+  const now = new Date();
+  const kstTomorrow = new Date(now.getTime() + 9 * 60 * 60 * 1000 + 24 * 60 * 60 * 1000);
+  return kstTomorrow.getUTCDate();
+}
+
+/**
+ * 급여 기간 계산: 전월 급여일 ~ 당월 급여일 전날
+ * 예) 오늘이 13일, 급여일 14일 → 전월 14일 ~ 오늘(13일)
+ */
+function calcPayPeriod(today: string, payDay: number): { startDate: string; endDate: string } {
+  const [y, m, d] = today.split("-").map(Number);
+  const endDate = today;
+  // 시작일: 전월 급여일
+  const startDateObj = new Date(Date.UTC(y, m - 2, payDay)); // 전월 payDay
+  const startDate = startDateObj.toISOString().split("T")[0];
+  return { startDate, endDate };
+}
+
+/**
+ * 급여일 전날 급여 이메일 발송
+ */
+export async function checkAndSendPaydayEveEmails(): Promise<void> {
+  const dbOk = await ensureDbConnection();
+  if (!dbOk) return;
+
+  try {
+    const today = getKSTDateString();
+    const tomorrowDay = getKSTTomorrowDay();
+
+    const allWorkers = await getAllWorkers();
+    const eligibleWorkers = allWorkers.filter(
+      (w) => w.payDay === tomorrowDay && w.email && (w as any).hourlyWage
+    );
+    if (eligibleWorkers.length === 0) return;
+
+    // 해당 알바생들의 급여 기간 계산 및 이메일 발송
+    for (const worker of eligibleWorkers) {
+      const keyPayday = `payday_${today}_${worker.id}`;
+      if (await isSent(keyPayday, today)) continue;
+
+      const { startDate, endDate } = calcPayPeriod(today, worker.payDay!);
+      const allStats = await getStatsByDateRange(startDate, endDate);
+      const stat = allStats.find((s) => s.workerId === worker.id);
+
+      const workDays = stat?.workDays ?? 0;
+      const totalMinutes = stat?.totalMinutes ?? 0;
+      const breakdown = stat?.dailyBreakdown ?? [];
+      const hourlyWage = (worker as any).hourlyWage as number;
+      const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
+      const totalPay = Math.round(totalHours * hourlyWage);
+
+      console.log(`[EmailScheduler] Sending payday eve email to ${worker.name} (payDay: ${worker.payDay}, wage: ${hourlyWage})`);
+      const result = await sendPaydayEveEmail({
+        to: worker.email!,
+        workerName: worker.name,
+        payDay: worker.payDay!,
+        periodStart: startDate,
+        periodEnd: endDate,
+        workDays,
+        totalMinutes,
+        hourlyWage,
+        totalPay,
+        breakdown,
+      });
+
+      if (result.success) {
+        await markSent(keyPayday, today);
+        console.log(`[EmailScheduler] ✅ Payday eve email sent to ${worker.name}`);
+      } else {
+        console.error(`[EmailScheduler] ❌ Payday eve email failed for ${worker.name}: ${result.error}`);
+      }
+    }
+  } catch (error: any) {
+    console.error("[EmailScheduler] Payday eve check error:", error);
+  }
+}
+
+/**
  * 스케줄러 시작 (매 5분마다 실행)
  */
 export function startEmailScheduler(): void {
@@ -262,9 +343,11 @@ export function startEmailScheduler(): void {
 
   // 즉시 한 번 실행
   checkAndSendShiftReminders().catch(console.error);
+  checkAndSendPaydayEveEmails().catch(console.error);
 
   // 5분마다 반복 실행
   setInterval(() => {
     checkAndSendShiftReminders().catch(console.error);
+    checkAndSendPaydayEveEmails().catch(console.error);
   }, 5 * 60 * 1000);
 }
