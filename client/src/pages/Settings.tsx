@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Sheet, ExternalLink, CheckCircle2, AlertCircle, Loader2, RefreshCw, Bell, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Bell, Save } from "lucide-react";
 import { toast } from "sonner";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -290,9 +290,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Google Sheets Export Card */}
-        <GoogleSheetsExportCard />
-
         {/* 알림 설정 */}
         <AdminNotificationSettings />
 
@@ -505,151 +502,6 @@ function AdminNotificationSettings() {
             쉼표로 구분하여 여러 명에게 발송 가능 · 미입력 시 환경변수 ADMIN_NOTIFICATION_EMAIL 사용
           </p>
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function GoogleSheetsExportCard() {
-  const [lastResult, setLastResult] = useState<{ success: boolean; message: string; sheetUrl?: string } | null>(null);
-  // 날짜 범위 직접 입력 (비워두면 서버 기본값: 오늘까지 최근 3개월)
-  const [customStart, setCustomStart] = useState<string>("");
-  const [customEnd, setCustomEnd] = useState<string>("");
-
-  const getExportDates = () => {
-    if (customStart && customEnd) return { startDate: customStart, endDate: customEnd };
-    return {}; // 비워두면 서버 기본값 사용 (오늘까지 최근 3개월)
-  };
-
-  const exportMutation = trpc.googleSheets.export.useMutation({
-    onSuccess: (data) => {
-      setLastResult(data);
-      if (data.success) {
-        toast.success("구글 시트 내보내기 완료!");
-      } else {
-        toast.error(data.message);
-      }
-    },
-    onError: (err) => {
-      toast.error("내보내기 실패: " + err.message);
-    },
-  });
-
-  const { data: syncInfo } = trpc.googleSheets.lastSyncInfo.useQuery(undefined, {
-    refetchInterval: 60 * 1000, // 1분마다 갱신
-  });
-
-  return (
-    <Card className="bg-card border-border">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Sheet className="w-4 h-4 text-green-500" />
-          구글 시트 내보내기
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          알바생 목록, 스케줄, 출퇴근 기록 데이터를 구글 시트에 내보냅니다.<br />
-          버튼을 누를 때마다 최신 데이터로 덮어쓰기되며, <strong>매일 자정(KST 00:00)에 자동으로 동기화</strong>됩니다.
-        </p>
-
-        {/* 날짜 범위 설정 (선택 사항) */}
-        <div className="space-y-2 p-3 rounded-lg bg-muted/20 border border-border/50">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-foreground">날짜 범위</span>
-            <span className="text-[10px] text-muted-foreground">비워두면 오늘까지 최근 3개월</span>
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground w-12 shrink-0">시작일</Label>
-              <Input
-                type="date"
-                value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
-                className="h-7 text-xs"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground w-12 shrink-0">종료일</Label>
-              <Input
-                type="date"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                className="h-7 text-xs"
-              />
-            </div>
-            {customStart && customEnd && (
-              <p className="text-xs text-green-400">
-                선택 기간: {customStart} ~ {customEnd}
-              </p>
-            )}
-            {(!customStart || !customEnd) && (
-              <p className="text-xs text-muted-foreground">
-                기본값: {new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1).toISOString().split("T")[0]} ~ 오늘
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* 자동 동기화 상태 */}
-        <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/50">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>자동 동기화</span>
-          </div>
-          <div className="text-xs">
-            {!syncInfo || syncInfo.lastSyncStatus === "never" ? (
-              <span className="text-muted-foreground">아직 실행 안 됨</span>
-            ) : (
-              <span className={syncInfo.lastSyncStatus === "success" ? "text-green-400" : "text-red-400"}>
-                {syncInfo.lastSyncStatus === "success" ? "✓ 성공" : "✗ 실패"}
-                {syncInfo.lastSyncTime && (
-                  <span className="text-muted-foreground ml-1">
-                    ({new Date(syncInfo.lastSyncTime).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })})
-                  </span>
-                )}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {lastResult && (
-          <div className={`flex items-start gap-2 p-3 rounded-lg text-xs ${
-            lastResult.success
-              ? "bg-green-500/10 border border-green-500/20 text-green-400"
-              : "bg-red-500/10 border border-red-500/20 text-red-400"
-          }`}>
-            {lastResult.success
-              ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-              : <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
-            <div className="flex-1">
-              <p className="whitespace-pre-line">{lastResult.message}</p>
-              {lastResult.sheetUrl && (
-                <a
-                  href={lastResult.sheetUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-1.5 text-green-400 hover:text-green-300 underline"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  구글 시트 열기
-                </a>
-              )}
-            </div>
-          </div>
-        )}
-
-        <Button
-          onClick={() => exportMutation.mutate(getExportDates())}
-          disabled={exportMutation.isPending}
-          className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
-        >
-          {exportMutation.isPending ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> 내보내는 중...</>
-          ) : (
-            <><Sheet className="w-4 h-4" /> 구글 시트로 내보내기</>
-          )}
-        </Button>
       </CardContent>
     </Card>
   );
