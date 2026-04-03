@@ -1,9 +1,16 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function createTransporter() {
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+}
 
-// 발신자 이메일 주소 (Resend에서 제공하는 기본 도메인 사용)
-const FROM_EMAIL = "대한한우숯불구이 <onboarding@resend.dev>";
+const FROM_EMAIL = `대한한우숯불구이 <${process.env.GMAIL_USER}>`;
 
 /** 날짜 포맷 공통 유틸 - KST 기준 요일 계산 */
 function formatDate(scheduleDate: string): string {
@@ -111,13 +118,14 @@ export async function sendShiftReminderEmail({
   `.trim();
 
   try {
-    const result = await resend.emails.send({
+    const transporter = createTransporter();
+    const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: [to],
       subject,
       html,
     });
-    return { success: true, id: result.data?.id };
+    return { success: true, id: result.messageId };
   } catch (error) {
     console.error("[Email] Failed to send 1h reminder:", error);
     return { success: false, error: String(error) };
@@ -232,13 +240,14 @@ export async function sendCheckInNowEmail({
   `.trim();
 
   try {
-    const result = await resend.emails.send({
+    const transporter = createTransporter();
+    const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: [to],
       subject,
       html,
     });
-    return { success: true, id: result.data?.id };
+    return { success: true, id: result.messageId };
   } catch (error) {
     console.error("[Email] Failed to send check-in now reminder:", error);
     return { success: false, error: String(error) };
@@ -345,13 +354,14 @@ export async function sendCheckOutNowEmail({
   `.trim();
 
   try {
-    const result = await resend.emails.send({
+    const transporter = createTransporter();
+    const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: [to],
       subject,
       html,
     });
-    return { success: true, id: result.data?.id };
+    return { success: true, id: result.messageId };
   } catch (error) {
     console.error("[Email] Failed to send check-out now reminder:", error);
     return { success: false, error: String(error) };
@@ -442,13 +452,14 @@ export async function sendCheckOutNotifyToAdmin({
   `.trim();
 
   try {
-    const result = await resend.emails.send({
+    const transporter = createTransporter();
+    const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: [to],
       subject,
       html,
     });
-    return { success: true, id: result.data?.id };
+    return { success: true, id: result.messageId };
   } catch (error) {
     console.error("[Email] Failed to send check-out notify to admin:", error);
     return { success: false, error: String(error) };
@@ -544,13 +555,14 @@ export async function sendAttendanceCorrectionToAdmin({
 </html>`.trim();
 
   try {
-    const result = await resend.emails.send({
+    const transporter = createTransporter();
+    const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: [to],
       subject,
       html,
     });
-    return { success: true, id: result.data?.id };
+    return { success: true, id: result.messageId };
   } catch (error) {
     console.error("[Email] Failed to send correction notify to admin:", error);
     return { success: false, error: String(error) };
@@ -558,11 +570,11 @@ export async function sendAttendanceCorrectionToAdmin({
 }
 
 /**
- * Resend API 연결 테스트
+ * Gmail SMTP 연결 테스트
  */
 export async function testResendConnection(): Promise<boolean> {
   try {
-    return !!process.env.RESEND_API_KEY;
+    return !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
   } catch {
     return false;
   }
