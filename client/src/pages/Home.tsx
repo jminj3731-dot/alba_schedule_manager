@@ -218,7 +218,7 @@ export default function Home() {
           workerId: worker?.id ?? null,
           workerName: loggedInName,
           actionType: "start_time_update",
-          description: `${loggedInName}님이 ${variables.scheduleDate} 출근 버튼을 눠렀습니다. 실제 시간 ${variables.actualStartTime} → ${variables.startTime}으로 기록`,
+          description: `${loggedInName}님이 ${variables.scheduleDate} 출근 버튼을 눌렀습니다. 실제 시간 ${variables.actualStartTime} → ${variables.startTime}으로 기록`,
           metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, actualStartTime: variables.actualStartTime, displayStartTime: variables.startTime }),
         });
       }
@@ -252,7 +252,7 @@ export default function Home() {
           workerId: worker?.id ?? null,
           workerName: loggedInName,
           actionType: "end_time_update",
-          description: `${loggedInName}님이 ${variables.scheduleDate} 퇴근 버튼을 눠렀습니다. 실제 시간 ${variables.actualEndTime} → ${variables.endTime}으로 기록`,
+          description: `${loggedInName}님이 ${variables.scheduleDate} 퇴근 버튼을 눌렀습니다. 실제 시간 ${variables.actualEndTime} → ${variables.endTime}으로 기록`,
           metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, actualEndTime: variables.actualEndTime, displayEndTime: variables.endTime }),
         });
       }

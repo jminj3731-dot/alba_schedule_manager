@@ -36,7 +36,9 @@ type ActionType =
   | "fixed_days_off_update"
   | "worker_created"
   | "worker_updated"
-  | "worker_deleted";
+  | "worker_deleted"
+  | "attendance_correction"
+  | "correction_skipped";
 
 const ACTION_LABELS: Record<ActionType, { label: string; color: string; icon: React.ReactNode }> = {
   end_time_update: {
@@ -73,6 +75,16 @@ const ACTION_LABELS: Record<ActionType, { label: string; color: string; icon: Re
     label: "알바생 삭제",
     color: "bg-red-500/15 text-red-400 border-red-500/30",
     icon: <UserMinus className="w-3.5 h-3.5" />,
+  },
+  attendance_correction: {
+    label: "출퇴근 시간 수정",
+    color: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+    icon: <Clock className="w-3.5 h-3.5" />,
+  },
+  correction_skipped: {
+    label: "수정 팝업 건너뜀",
+    color: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
+    icon: <ChevronDown className="w-3.5 h-3.5" />,
   },
 };
 
@@ -285,7 +297,7 @@ export default function ActivityLog() {
             {isLoading ? "불러오는 중..." : `총 ${logs.length}건`}
           </span>
           {sortedDates.length > 0 && (
-            <span className="text-xs text-muted-foreground">{sortedDates.length}일치 기록</span>
+            <span className="text-xs text-muted-foreground">{sortedDates.length}일간 기록</span>
           )}
         </div>
 
