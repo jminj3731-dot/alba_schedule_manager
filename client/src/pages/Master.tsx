@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Wand2, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Wand2, Clock, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
@@ -106,10 +106,9 @@ function validateRow(row: ScheduleRow, workers: any[]): { type: string; message:
     }
   }
 
-  const isWeekend = WEEKEND_DAYS.includes(row.dayOfWeek);
-  const required = isWeekend ? 3 : 2;
-  if (assigned.length > 0 && assigned.length < required) {
-    errors.push({ type: "info", message: `${isWeekend ? "주말" : "평일"} ${required}명 필요 (현재 ${assigned.length}명)` });
+  const coreAssigned = [aW, bW].filter(Boolean);
+  if (coreAssigned.length > 0 && coreAssigned.length < 2) {
+    errors.push({ type: "info", message: `A/B타임 2명 필요 (현재 ${coreAssigned.length}명)` });
   }
 
   return errors;
@@ -126,6 +125,7 @@ function isDayOffViolation(workerId: number | null, dayOfWeek: string, workers: 
 export default function Master() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [autoAssignDialogOpen, setAutoAssignDialogOpen] = useState(false);
+  const [expandedCSlots, setExpandedCSlots] = useState<Set<string>>(new Set());
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
   const startDate = weekDates[0].dateStr;
@@ -199,7 +199,7 @@ export default function Master() {
     return map;
   }, [weekDates, existingSchedules]);
 
-  function saveSchedule(dateStr: string, updates: Partial<ScheduleRow>) {
+  function saveSchedule(dateStr: string, updates: Partial<ScheduleRow>, workerDefaultTimes?: { slot: "a" | "b" | "c"; startTime?: string; endTime?: string }) {
     const current = scheduleMap[dateStr];
     if (!current) return;
     const row = { ...current, ...updates };
@@ -211,6 +211,15 @@ export default function Master() {
       bTimeWorkerId: row.bTimeWorkerId,
       cTimeWorkerId: row.cTimeWorkerId,
     });
+    // 알바생 기본 시간이 있으면 자동 세팅
+    if (workerDefaultTimes && (workerDefaultTimes.startTime || workerDefaultTimes.endTime)) {
+      updateTimeMutation.mutate({
+        scheduleDate: dateStr,
+        timeSlot: workerDefaultTimes.slot,
+        startTime: workerDefaultTimes.startTime,
+        endTime: workerDefaultTimes.endTime,
+      });
+    }
   }
 
   function handleUpdateTime(dateStr: string, timeSlot: "a" | "b" | "c", startTime?: string, endTime?: string) {
@@ -290,7 +299,7 @@ export default function Master() {
                       </span>
                       <span className="text-sm font-medium">{formatDate(d.dateStr)}</span>
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-border text-muted-foreground">
-                        {isWeekend ? "주말 3명" : "평일 2명"}
+                        {isWeekend ? "주말" : "평일"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2">
@@ -318,7 +327,10 @@ export default function Master() {
                         dayOfWeek={d.dayName}
                         scheduleDate={d.dateStr}
                         hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
-                        onWorkerChange={(id) => saveSchedule(d.dateStr, { aTimeWorkerId: id })}
+                        onWorkerChange={(id) => {
+                          const w = workers.find((w) => w.id === id);
+                          saveSchedule(d.dateStr, { aTimeWorkerId: id }, w?.defaultStartTime || w?.defaultEndTime ? { slot: "a", startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
+                        }}
                         onTimeChange={handleUpdateTime}
                       />
                       <TimeSlotRow
@@ -331,10 +343,13 @@ export default function Master() {
                         dayOfWeek={d.dayName}
                         scheduleDate={d.dateStr}
                         hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
-                        onWorkerChange={(id) => saveSchedule(d.dateStr, { bTimeWorkerId: id })}
+                        onWorkerChange={(id) => {
+                          const w = workers.find((w) => w.id === id);
+                          saveSchedule(d.dateStr, { bTimeWorkerId: id }, w?.defaultStartTime || w?.defaultEndTime ? { slot: "b", startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
+                        }}
                         onTimeChange={handleUpdateTime}
                       />
-                      {isWeekend && (
+                      {(row.cTimeWorkerId !== null && row.cTimeWorkerId !== undefined) || expandedCSlots.has(d.dateStr) ? (
                         <TimeSlotRow
                           label="C"
                           timeSlot="c"
@@ -345,9 +360,25 @@ export default function Master() {
                           dayOfWeek={d.dayName}
                           scheduleDate={d.dateStr}
                           hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
-                          onWorkerChange={(id) => saveSchedule(d.dateStr, { cTimeWorkerId: id })}
+                          onWorkerChange={(id) => {
+                            const w = workers.find((w) => w.id === id);
+                            saveSchedule(d.dateStr, { cTimeWorkerId: id }, w?.defaultStartTime || w?.defaultEndTime ? { slot: "c", startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
+                            if (!id) setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                          }}
                           onTimeChange={handleUpdateTime}
+                          onRemove={() => {
+                            saveSchedule(d.dateStr, { cTimeWorkerId: null });
+                            setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                          }}
                         />
+                      ) : (
+                        <button
+                          onClick={() => setExpandedCSlots((prev) => new Set(prev).add(d.dateStr))}
+                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground border border-dashed border-border/50 hover:border-border rounded-md px-2 py-1.5 w-full transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          C타임 추가
+                        </button>
                       )}
                     </div>
                   )}
@@ -373,7 +404,7 @@ export default function Master() {
 
                   {/* All good indicator */}
                   {row.isOperating && errors.length === 0 &&
-                    [row.aTimeWorkerId, row.bTimeWorkerId, row.cTimeWorkerId].some(Boolean) && (
+                    (row.aTimeWorkerId || row.bTimeWorkerId) && (
                       <div className="flex items-center gap-1.5 text-[11px] text-green-500 pt-1 border-t border-border/50">
                         <CheckCircle2 className="w-3 h-3" />
                         <span>정상 배정</span>
@@ -434,6 +465,7 @@ function TimeSlotRow({
   hasSchedule,
   onWorkerChange,
   onTimeChange,
+  onRemove,
 }: {
   label: string;
   timeSlot: "a" | "b" | "c";
@@ -446,6 +478,7 @@ function TimeSlotRow({
   hasSchedule: boolean;
   onWorkerChange: (id: number | null) => void;
   onTimeChange: (dateStr: string, slot: "a" | "b" | "c", startTime?: string, endTime?: string) => void;
+  onRemove?: () => void;
 }) {
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
@@ -462,6 +495,15 @@ function TimeSlotRow({
         >
           {label}
         </span>
+        {onRemove && (
+          <button
+            onClick={onRemove}
+            className="text-muted-foreground hover:text-destructive transition-colors"
+            title="C타임 제거"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
 
         {/* 출근 시간 선택 */}
         <Popover open={startOpen} onOpenChange={setStartOpen}>
@@ -567,7 +609,7 @@ function TimeSlotRow({
               <SelectItem key={w.id} value={String(w.id)}>
                 <span className={restricted ? "text-destructive" : ""}>
                   {w.name}
-                  {w.skillLevel === "main" ? " (메인)" : " (서브)"}
+                  {w.skillLevel === "main" ? " (메인)" : w.skillLevel === "trainee" ? " (수습)" : " (서브)"}
                   {restricted ? " - 근무불가" : ""}
                 </span>
               </SelectItem>

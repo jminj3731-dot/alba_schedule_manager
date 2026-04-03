@@ -25,7 +25,7 @@ export type InsertUser = typeof users.$inferInsert;
 export const workers = mysqlTable("workers", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
-  skillLevel: mysqlEnum("skillLevel", ["main", "sub"]).notNull(),
+  skillLevel: mysqlEnum("skillLevel", ["main", "sub", "trainee"]).notNull(),
   /** 고정 휴무 요일 - 쉼표로 구분된 요일 문자열 (예: "목,일") */
   fixedDaysOff: varchar("fixedDaysOff", { length: 100 }).default(""),
   /** 선호 근무 요일 - 쉼표로 구분된 요일 문자열 (예: "월,화,수,금") */
@@ -34,6 +34,10 @@ export const workers = mysqlTable("workers", {
   payDay: int("payDay").default(14),
   /** 이메일 주소 (출근 예정 알림 발송용) */
   email: varchar("email", { length: 320 }),
+  /** 기본 출근 시간 (예: "18:00", Master에서 배정 시 자동 세팅) */
+  defaultStartTime: varchar("defaultStartTime", { length: 10 }),
+  /** 기본 퇴근 시간 (예: "21:00", Master에서 배정 시 자동 세팅) */
+  defaultEndTime: varchar("defaultEndTime", { length: 10 }),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

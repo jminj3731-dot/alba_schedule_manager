@@ -55,11 +55,13 @@ export default function Settings() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState<any>(null);
   const [formName, setFormName] = useState("");
-  const [formSkillLevel, setFormSkillLevel] = useState<"main" | "sub">("sub");
+  const [formSkillLevel, setFormSkillLevel] = useState<"main" | "sub" | "trainee">("sub");
   const [formDaysOff, setFormDaysOff] = useState<string[]>([]);
   const [formPreferredDays, setFormPreferredDays] = useState<string[]>([]);
   const [formPayDay, setFormPayDay] = useState<number>(14);
   const [formEmail, setFormEmail] = useState<string>("");
+  const [formDefaultStartTime, setFormDefaultStartTime] = useState<string>("");
+  const [formDefaultEndTime, setFormDefaultEndTime] = useState<string>("");
 
   const utils = trpc.useUtils();
   const { data: workers = [], isLoading } = trpc.workers.list.useQuery();
@@ -135,6 +137,8 @@ export default function Settings() {
     setFormPreferredDays([]);
     setFormPayDay(14);
     setFormEmail("");
+    setFormDefaultStartTime("");
+    setFormDefaultEndTime("");
     setEditingWorker(null);
     setDialogOpen(false);
   }
@@ -147,6 +151,8 @@ export default function Settings() {
     setFormPreferredDays(worker.preferredDays ? worker.preferredDays.split(",").filter(Boolean) : []);
     setFormPayDay(worker.payDay ?? 14);
     setFormEmail(worker.email ?? "");
+    setFormDefaultStartTime(worker.defaultStartTime ?? "");
+    setFormDefaultEndTime(worker.defaultEndTime ?? "");
     setDialogOpen(true);
   }
 
@@ -163,6 +169,8 @@ export default function Settings() {
     const daysOffStr = formDaysOff.join(",");
     const preferredStr = formPreferredDays.join(",");
     const emailVal = formEmail.trim() || null;
+    const defaultStartVal = formDefaultStartTime.trim() || null;
+    const defaultEndVal = formDefaultEndTime.trim() || null;
     if (editingWorker) {
       updateMutation.mutate({
         id: editingWorker.id,
@@ -172,6 +180,8 @@ export default function Settings() {
         preferredDays: preferredStr,
         payDay: formPayDay,
         email: emailVal,
+        defaultStartTime: defaultStartVal,
+        defaultEndTime: defaultEndVal,
       });
     } else {
       createMutation.mutate({
@@ -181,6 +191,8 @@ export default function Settings() {
         preferredDays: preferredStr,
         payDay: formPayDay,
         email: emailVal,
+        defaultStartTime: defaultStartVal,
+        defaultEndTime: defaultEndVal,
       });
     }
   }
@@ -204,6 +216,7 @@ export default function Settings() {
 
   const mainWorkers = workers.filter((w) => w.skillLevel === "main");
   const subWorkers = workers.filter((w) => w.skillLevel === "sub");
+  const traineeWorkers = workers.filter((w) => w.skillLevel === "trainee");
 
   return (
     <AppLayout>
@@ -290,6 +303,24 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        {/* Worker List - Trainee */}
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Users className="w-4 h-4 text-orange-400" />
+              수습 (숙련도 하)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {traineeWorkers.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">수습 알바생이 없습니다.</p>
+            )}
+            {traineeWorkers.map((w) => (
+              <WorkerRow key={w.id} worker={w} onEdit={() => openEditDialog(w)} onDelete={() => deleteMutation.mutate({ id: w.id })} />
+            ))}
+          </CardContent>
+        </Card>
+
         {/* 알림 설정 */}
         <AdminNotificationSettings />
 
@@ -311,13 +342,14 @@ export default function Settings() {
               </div>
               <div className="space-y-2">
                 <Label>숙련도</Label>
-                <Select value={formSkillLevel} onValueChange={(v) => setFormSkillLevel(v as "main" | "sub")}>
+                <Select value={formSkillLevel} onValueChange={(v) => setFormSkillLevel(v as "main" | "sub" | "trainee")}>
                   <SelectTrigger className="bg-secondary/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="main">메인 (숙련도 상)</SelectItem>
                     <SelectItem value="sub">서브 (숙련도 중)</SelectItem>
+                    <SelectItem value="trainee">수습 (숙련도 하)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -410,6 +442,30 @@ export default function Settings() {
                   className="bg-secondary/50"
                 />
                 <p className="text-[10px] text-muted-foreground">입력 시 근무 1시간 전에 자동으로 알림 이메일이 발송됩니다.</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  기본 근무 시간
+                  <span className="text-[10px] text-muted-foreground font-normal">(Master에서 배정 시 자동 적용)</span>
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="time"
+                    value={formDefaultStartTime}
+                    onChange={(e) => setFormDefaultStartTime(e.target.value)}
+                    className="bg-secondary/50 flex-1"
+                    placeholder="18:00"
+                  />
+                  <span className="text-sm text-muted-foreground shrink-0">~</span>
+                  <Input
+                    type="time"
+                    value={formDefaultEndTime}
+                    onChange={(e) => setFormDefaultEndTime(e.target.value)}
+                    className="bg-secondary/50 flex-1"
+                    placeholder="21:00"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">미입력 시 타임별 기본값 사용 (A: 17:30, B/C: 18:00 ~ 22:00)</p>
               </div>
             </div>
             <DialogFooter>
@@ -529,10 +585,12 @@ function WorkerRow({
             className={`text-[10px] px-1.5 py-0 ${
               worker.skillLevel === "main"
                 ? "border-primary/50 text-primary"
+                : worker.skillLevel === "trainee"
+                ? "border-orange-500/50 text-orange-400"
                 : "border-muted-foreground/30 text-muted-foreground"
             }`}
           >
-            {worker.skillLevel === "main" ? "메인" : "서브"}
+            {worker.skillLevel === "main" ? "메인" : worker.skillLevel === "trainee" ? "수습" : "서브"}
           </Badge>
         </div>
         {daysOff.length > 0 && (
@@ -566,6 +624,14 @@ function WorkerRow({
             <span className="text-[10px] text-muted-foreground">이메일:</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
               {worker.email}
+            </span>
+          </div>
+        )}
+        {(worker.defaultStartTime || worker.defaultEndTime) && (
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-[10px] text-muted-foreground">기본 시간:</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400">
+              {worker.defaultStartTime || "?"} ~ {worker.defaultEndTime || "?"}
             </span>
           </div>
         )}
