@@ -168,3 +168,8 @@
     }
   }
 }
+
+.input-masked {
+  -webkit-text-security: disc;
+  text-security: disc;
+}

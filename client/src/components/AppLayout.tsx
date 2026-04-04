@@ -59,13 +59,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               inputMode="text"
               autoComplete="off"
               autoCorrect="off"
-              autoCapitalize="none"
-              style={{ WebkitTextSecurity: "disc" } as any}
+              autoCapitalize="off"
+              className="h-12 bg-secondary/50 text-base input-masked"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAuth()}
               placeholder="비밀번호 입력"
-              className="h-12 bg-secondary/50 text-base"
             />
             <Button onClick={handleAuth} className="w-full h-12">
               확인
