@@ -88,7 +88,7 @@ export default function FullSchedule() {
   }
 
   function hasMainWorker(schedule: typeof schedules[0]) {
-    const ids = [schedule.aTimeWorkerId, schedule.bTimeWorkerId, schedule.cTimeWorkerId].filter(Boolean);
+    const ids = [schedule.aTimeWorkerId, schedule.bTimeWorkerId, schedule.cTimeWorkerId, (schedule as any).dTimeWorkerId].filter(Boolean);
     return ids.some((id) => workerMap[id!]?.skillLevel === "main");
   }
 
@@ -186,13 +186,17 @@ export default function FullSchedule() {
               const aStart = (schedule as any).aTimeStartTime || "17:30";
               const bStart = (schedule as any).bTimeStartTime || "18:00";
               const cStart = (schedule as any).cTimeStartTime || "18:00";
+              const dStart = (schedule as any).dTimeStartTime || "18:00";
               const aEnd = (schedule as any).aTimeEndTime || "22:00";
               const bEnd = (schedule as any).bTimeEndTime || "22:00";
               const cEnd = (schedule as any).cTimeEndTime || "22:00";
+              const dEnd = (schedule as any).dTimeEndTime || "21:00";
+              const dWorkerId = (schedule as any).dTimeWorkerId ?? null;
               const slots = [
                 { label: "A", time: `${aStart}~${aEnd}`, workerId: schedule.aTimeWorkerId },
                 { label: "B", time: `${bStart}~${bEnd}`, workerId: schedule.bTimeWorkerId },
-                ...(isWeekend ? [{ label: "C", time: `${cStart}~${cEnd}`, workerId: schedule.cTimeWorkerId }] : []),
+                ...(isWeekend || schedule.cTimeWorkerId ? [{ label: "C", time: `${cStart}~${cEnd}`, workerId: schedule.cTimeWorkerId }] : []),
+                ...(dWorkerId ? [{ label: "D", time: `${dStart}~${dEnd}`, workerId: dWorkerId }] : []),
               ];
 
               return (
@@ -259,10 +263,12 @@ export default function FullSchedule() {
                                       className={`text-[9px] px-1 py-0 h-4 ${
                                         isMain
                                           ? "border-primary/50 text-primary"
+                                          : skill === "trainee"
+                                          ? "border-orange-500/50 text-orange-400"
                                           : "border-border text-muted-foreground"
                                       }`}
                                     >
-                                      {isMain ? "메인" : "서브"}
+                                      {isMain ? "메인" : skill === "trainee" ? "수습" : "서브"}
                                     </Badge>
                                   </div>
                                 )}
