@@ -653,8 +653,8 @@ export default function Home() {
                                 },
                                 (err) => {
                                   setLocationChecking(false);
-                                  if (err.code === 1) {
-                                    toast.error("위치 권한이 거부되었습니다.\n브라우저 설정에서 위치 권한을 허용해주세요.");
+                                  if (err.code === 1 || err.code === 3) {
+                                    toast.error("위치 권한이 거부되었거나 응답이 없습니다.\n카카오톡 인앱 브라우저에서는 위치 권한이 제한될 수 있어요.\nSafari 또는 Chrome으로 열어서 다시 시도해주세요.", { duration: 6000 });
                                   } else {
                                     toast.error("위치를 확인할 수 없습니다. 다시 시도해주세요.");
                                   }
@@ -912,8 +912,8 @@ export default function Home() {
                                     },
                                     (err) => {
                                       setLocationChecking(false);
-                                      if (err.code === 1) {
-                                        toast.error("위치 권한이 거부되었습니다.\n브라우저 설정에서 위치 권한을 허용해주세요.");
+                                      if (err.code === 1 || err.code === 3) {
+                                        toast.error("위치 권한이 거부되었거나 응답이 없습니다.\n카카오톡 인앱 브라우저에서는 위치 권한이 제한될 수 있어요.\nSafari 또는 Chrome으로 열어서 다시 시도해주세요.", { duration: 6000 });
                                       } else {
                                         toast.error("위치를 확인할 수 없습니다. 다시 시도해주세요.");
                                       }
