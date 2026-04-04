@@ -207,7 +207,7 @@ export default function Master() {
     return map;
   }, [weekDates, existingSchedules]);
 
-  function saveSchedule(dateStr: string, updates: Partial<ScheduleRow>, workerDefaultTimes?: { slot: "a" | "b" | "c"; startTime?: string; endTime?: string }) {
+  function saveSchedule(dateStr: string, updates: Partial<ScheduleRow>, workerDefaultTimes?: { slot: "a" | "b" | "c" | "d"; startTime?: string; endTime?: string }) {
     const current = scheduleMap[dateStr];
     if (!current) return;
     const row = { ...current, ...updates };

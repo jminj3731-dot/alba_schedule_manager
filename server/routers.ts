@@ -167,7 +167,7 @@ export const appRouter = router({
     checkIn: publicProcedure
       .input(z.object({
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c"]),
+        timeSlot: z.enum(["a", "b", "c", "d"]),
         startTime: z.string(),       // 30분 반올림된 시간
         actualStartTime: z.string(), // 실제 입력 시간
       }))
@@ -192,7 +192,7 @@ export const appRouter = router({
     checkOut: publicProcedure
       .input(z.object({
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c"]),
+        timeSlot: z.enum(["a", "b", "c", "d"]),
         endTime: z.string(),         // 30분 반올림된 시간
         actualEndTime: z.string(),   // 실제 입력 시간
       }))
@@ -497,7 +497,7 @@ export const appRouter = router({
         workerId: z.number().nullable().optional(),
         workerName: z.string(),
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c"]),
+        timeSlot: z.enum(["a", "b", "c", "d"]),
         correctionType: z.enum(["check_in", "check_out", "both"]),
         actionType: z.enum(["corrected", "skipped"]),
         originalCheckInTime: z.string().optional(),

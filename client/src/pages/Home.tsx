@@ -146,6 +146,7 @@ export default function Home() {
   const [workerName, setWorkerName] = useState("");
   const [loggedInName, setLoggedInName] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
   const [viewMode, setViewMode] = useState<"card" | "calendar">("card");
   const [prefDialogOpen, setPrefDialogOpen] = useState(false);
   const [prefDays, setPrefDays] = useState<string[]>([]);
@@ -158,7 +159,7 @@ export default function Home() {
   const [correctionCtx, setCorrectionCtx] = useState<{
     type: "check_in" | "check_out" | "both";
     scheduleDate: string;
-    timeSlot: "a" | "b" | "c";
+    timeSlot: "a" | "b" | "c" | "d";
     originalCheckInTime?: string;
     originalCheckOutTime?: string;
     scheduledCheckInTime?: string;
@@ -175,8 +176,27 @@ export default function Home() {
   const startDate = weekDates[0].dateStr;
   const endDate = weekDates[6].dateStr;
 
+  const monthRange = useMemo(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 0);
+    return {
+      start: toLocalDateStr(firstDay),
+      end: toLocalDateStr(lastDay),
+      label: `${firstDay.getFullYear()}년 ${firstDay.getMonth() + 1}월`,
+      firstDayOfWeek: firstDay.getDay(),
+      daysInMonth: lastDay.getDate(),
+      year: firstDay.getFullYear(),
+      month: firstDay.getMonth(),
+    };
+  }, [monthOffset]);
+
   const { data: workers = [] } = trpc.workers.list.useQuery();
   const { data: schedules = [] } = trpc.schedules.getByDateRange.useQuery({ startDate, endDate });
+  const { data: monthSchedules = [] } = trpc.schedules.getByDateRange.useQuery(
+    { startDate: monthRange.start, endDate: monthRange.end },
+    { enabled: viewMode === "calendar" }
+  );
   const utils = trpc.useUtils();
 
   const notifyScheduleViewMutation = trpc.notifications.notifyScheduleView.useMutation();
@@ -746,17 +766,6 @@ export default function Home() {
             );
           })()}
 
-          {/* Week navigation */}
-          <div className="flex items-center justify-between">
-            <Button variant="outline" size="icon" className="h-8 w-8 bg-transparent" onClick={() => setWeekOffset((p) => p - 1)}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <span className="text-sm font-medium">{weekLabel}</span>
-            <Button variant="outline" size="icon" className="h-8 w-8 bg-transparent" onClick={() => setWeekOffset((p) => p + 1)}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-
           {/* View mode toggle */}
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "card" | "calendar")}>
             <TabsList className="w-full bg-secondary/50">
@@ -772,6 +781,16 @@ export default function Home() {
 
             {/* Card View */}
             <TabsContent value="card" className="mt-3 space-y-2">
+              {/* Week navigation */}
+              <div className="flex items-center justify-between mb-1">
+                <Button variant="outline" size="icon" className="h-8 w-8 bg-transparent" onClick={() => setWeekOffset((p) => p - 1)}>
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-sm font-medium">{weekLabel}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8 bg-transparent" onClick={() => setWeekOffset((p) => p + 1)}>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
               {weekDates.map((d) => {
                 const schedule = schedules.find((s) => s.scheduleDate === d.dateStr);
                 const isWeekend = WEEKEND_DAYS.includes(d.dayName);
@@ -1009,11 +1028,37 @@ export default function Home() {
               })}
             </TabsContent>
 
-            {/* Calendar View */}
+            {/* Calendar View - 월간 */}
             <TabsContent value="calendar" className="mt-3">
+              {/* Month navigation */}
+              <div className="flex items-center justify-between mb-3">
+                <Button variant="outline" size="icon" className="h-8 w-8 bg-transparent" onClick={() => setMonthOffset((p) => p - 1)}>
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-sm font-semibold">{monthRange.label}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8 bg-transparent" onClick={() => setMonthOffset((p) => p + 1)}>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* 이번 달 근무 요약 */}
+              {(() => {
+                const myMonthDays = monthSchedules.filter((s) => {
+                  if (!s.isOperating) return false;
+                  return getMyTimeSlot(s) !== null;
+                });
+                return myMonthDays.length > 0 ? (
+                  <div className="flex items-center justify-center gap-1.5 mb-3 py-1.5 px-3 rounded-lg bg-primary/10 border border-primary/20">
+                    <CalendarCheck className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs text-primary font-medium">이번 달 내 근무: {myMonthDays.length}일</span>
+                  </div>
+                ) : null;
+              })()}
+
               <Card className="bg-card border-border">
                 <CardContent className="p-3">
-                  <div className="grid grid-cols-7 gap-1 mb-2">
+                  {/* 요일 헤더 */}
+                  <div className="grid grid-cols-7 gap-1 mb-1">
                     {DAY_NAMES.map((day) => (
                       <div
                         key={day}
@@ -1025,50 +1070,74 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
+
+                  {/* 날짜 그리드 */}
                   <div className="grid grid-cols-7 gap-1">
-                    {weekDates.map((d) => {
-                      const schedule = schedules.find((s) => s.scheduleDate === d.dateStr);
-                      const today = isToday(d.dateStr);
+                    {/* 첫째 날 전 빈 셀 */}
+                    {Array.from({ length: monthRange.firstDayOfWeek }).map((_, i) => (
+                      <div key={`empty-${i}`} />
+                    ))}
+                    {/* 날짜 셀 */}
+                    {Array.from({ length: monthRange.daysInMonth }).map((_, i) => {
+                      const day = i + 1;
+                      const dateStr = `${monthRange.year}-${String(monthRange.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                      const schedule = monthSchedules.find((s) => s.scheduleDate === dateStr);
+                      const today = isToday(dateStr);
                       const isOff = schedule && !schedule.isOperating;
                       const mySlot = schedule ? getMyTimeSlot(schedule) : null;
                       const isMyDay = !!mySlot;
+                      const dayOfWeek = new Date(monthRange.year, monthRange.month, day).getDay();
+                      const isSun = dayOfWeek === 0;
+                      const isSat = dayOfWeek === 6;
 
                       return (
                         <div
-                          key={d.dateStr}
-                          className={`rounded-lg p-1.5 min-h-[80px] text-center border transition-colors ${
+                          key={dateStr}
+                          className={`rounded-lg p-1 min-h-[60px] text-center border transition-colors ${
                             isMyDay
                               ? "border-primary/60 bg-primary/10"
                               : today
-                              ? "border-border bg-secondary/20"
+                              ? "border-primary/30 bg-secondary/30"
                               : isOff
-                              ? "border-border/30 bg-muted/20 opacity-50"
-                              : "border-border/30 bg-secondary/20"
+                              ? "border-border/20 bg-muted/10 opacity-40"
+                              : "border-border/20 bg-transparent"
                           }`}
                         >
-                          <div className={`text-xs font-bold mb-1 ${isMyDay ? "text-primary" : "text-foreground"}`}>
-                            {d.date.getDate()}
+                          <div className={`text-[11px] font-bold mb-0.5 ${
+                            isMyDay ? "text-primary" : today ? "text-primary" : isSun ? "text-destructive" : isSat ? "text-blue-400" : "text-foreground"
+                          }`}>
+                            {day}
                           </div>
                           {isOff ? (
-                            <span className="text-[9px] text-muted-foreground">휴무</span>
+                            <span className="text-[8px] text-muted-foreground/60">휴무</span>
                           ) : isMyDay && mySlot ? (
                             <div className="space-y-0.5">
-                              <div className="text-[9px] px-1 py-0.5 rounded bg-primary/20 text-primary font-medium">
+                              <div className="text-[8px] px-0.5 py-0.5 rounded bg-primary/20 text-primary font-semibold leading-tight">
                                 {mySlot.label}타임
                               </div>
-                              <div className="text-[8px] text-muted-foreground">
-                                {mySlot.time}
+                              <div className="text-[7px] text-muted-foreground leading-tight">
+                                {mySlot.startTime}~{mySlot.endTime}
                               </div>
                             </div>
-                          ) : (
-                            <span className="text-[9px] text-muted-foreground">-</span>
-                          )}
+                          ) : null}
                         </div>
                       );
                     })}
                   </div>
                 </CardContent>
               </Card>
+
+              {/* 범례 */}
+              <div className="flex items-center gap-3 mt-2 px-1">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded border border-primary/60 bg-primary/10" />
+                  <span className="text-[10px] text-muted-foreground">내 근무일</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded border border-primary/30 bg-secondary/30" />
+                  <span className="text-[10px] text-muted-foreground">오늘</span>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
 

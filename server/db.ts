@@ -308,7 +308,7 @@ export async function upsertSchedule(data: {
 
 export async function updateScheduleEndTime(data: {
   scheduleDate: string;
-  timeSlot: "a" | "b" | "c";
+  timeSlot: "a" | "b" | "c" | "d";
   endTime: string;
   actualEndTime?: string;
 }) {
@@ -320,6 +320,7 @@ export async function updateScheduleEndTime(data: {
   const updateField =
     data.timeSlot === "a" ? { aTimeEndTime: data.endTime, aTimeActualEndTime: data.actualEndTime || data.endTime } :
     data.timeSlot === "b" ? { bTimeEndTime: data.endTime, bTimeActualEndTime: data.actualEndTime || data.endTime } :
+    data.timeSlot === "d" ? { dTimeEndTime: data.endTime, dTimeActualEndTime: data.actualEndTime || data.endTime } as any :
     { cTimeEndTime: data.endTime, cTimeActualEndTime: data.actualEndTime || data.endTime };
 
   await db.update(schedules).set(updateField).where(eq(schedules.id, existing.id));
@@ -331,6 +332,7 @@ export async function updateScheduleEndTime(data: {
     const workerId =
       data.timeSlot === "a" ? existing.aTimeWorkerId
       : data.timeSlot === "b" ? existing.bTimeWorkerId
+      : data.timeSlot === "d" ? (existing as any).dTimeWorkerId
       : existing.cTimeWorkerId;
     if (workerId) {
       const w = await getWorkerById(workerId);
@@ -340,6 +342,7 @@ export async function updateScheduleEndTime(data: {
     scheduledEndTime =
       data.timeSlot === "a" ? existing.aTimeEndTime
       : data.timeSlot === "b" ? existing.bTimeEndTime
+      : data.timeSlot === "d" ? (existing as any).dTimeEndTime
       : existing.cTimeEndTime;
   } catch {}
 
@@ -526,7 +529,7 @@ async function buildStats(allWorkers: any[], rangeSchedules: any[]): Promise<Mon
   }));
 
   for (const s of rangeSchedules) {
-    const slots: { slot: "a" | "b" | "c"; workerId: number | null; start: string; end: string }[] = [
+    const slots: { slot: "a" | "b" | "c" | "d"; workerId: number | null; start: string; end: string }[] = [
       { slot: "a", workerId: s.aTimeWorkerId, start: (s as any).aTimeStartTime || "17:30", end: (s as any).aTimeEndTime || "22:00" },
       { slot: "b", workerId: s.bTimeWorkerId, start: (s as any).bTimeStartTime || "18:00", end: (s as any).bTimeEndTime || "22:00" },
       { slot: "c", workerId: s.cTimeWorkerId, start: (s as any).cTimeStartTime || "18:00", end: (s as any).cTimeEndTime || "22:00" },
@@ -708,7 +711,7 @@ function roundTimeToNearest30MinServer(timeStr: string): string {
 
 export async function updateScheduleActualTimes(data: {
   scheduleDate: string;
-  timeSlot: "a" | "b" | "c";
+  timeSlot: "a" | "b" | "c" | "d";
   correctedCheckInTime?: string;
   correctedCheckOutTime?: string;
   scheduledCheckInTime?: string;
