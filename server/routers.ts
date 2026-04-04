@@ -263,7 +263,15 @@ export const appRouter = router({
           const requiredCount = isWeekend ? 3 : 2;
 
           // Get available workers for this day (not on fixed day off)
+          // 수습(trainee)은 D슬롯 전용 — A/B/C 자동배정에서 제외
           const available = allWorkers.filter(w => {
+            if (w.skillLevel === "trainee") return false;
+            const daysOff = (w.fixedDaysOff || "").split(",").map(s => s.trim()).filter(Boolean);
+            return !daysOff.includes(dayName);
+          });
+
+          const availableTrainees = allWorkers.filter(w => {
+            if (w.skillLevel !== "trainee") return false;
             const daysOff = (w.fixedDaysOff || "").split(",").map(s => s.trim()).filter(Boolean);
             return !daysOff.includes(dayName);
           });
@@ -272,13 +280,12 @@ export const appRouter = router({
           const scored = available.map(w => {
             const preferred = (w.preferredDays || "").split(",").map(s => s.trim()).filter(Boolean);
             const prefScore = preferred.includes(dayName) ? 100 : 0;
-            const balanceScore = 10 - (weekCounts[w.id] || 0); // fewer shifts = higher score
+            const balanceScore = 10 - (weekCounts[w.id] || 0);
             return { worker: w, score: prefScore + balanceScore };
           }).sort((a, b) => b.score - a.score);
 
           // Ensure at least one main worker
           const mainWorkers = scored.filter(s => s.worker.skillLevel === "main");
-          const subWorkers = scored.filter(s => s.worker.skillLevel === "sub");
 
           const assigned: typeof allWorkers = [];
 
@@ -291,7 +298,6 @@ export const appRouter = router({
           const remaining = scored.filter(s => !assigned.find(a => a.id === s.worker.id));
           for (const s of remaining) {
             if (assigned.length >= requiredCount) break;
-            // Target 4 days per week
             if ((weekCounts[s.worker.id] || 0) >= 5) continue;
             assigned.push(s.worker);
           }
@@ -306,8 +312,24 @@ export const appRouter = router({
             }
           }
 
+          // D슬롯 수습 배정: 선호일 우선, 주 5일 초과 방지
+          const scoredTrainees = availableTrainees.map(w => {
+            const preferred = (w.preferredDays || "").split(",").map(s => s.trim()).filter(Boolean);
+            const prefScore = preferred.includes(dayName) ? 100 : 0;
+            const balanceScore = 10 - (weekCounts[w.id] || 0);
+            return { worker: w, score: prefScore + balanceScore };
+          }).sort((a, b) => b.score - a.score);
+
+          let dTimeWorkerId: number | null = null;
+          for (const s of scoredTrainees) {
+            if ((weekCounts[s.worker.id] || 0) >= 5) continue;
+            dTimeWorkerId = s.worker.id;
+            break;
+          }
+
           // Update week counts
           assigned.forEach(w => { weekCounts[w.id] = (weekCounts[w.id] || 0) + 1; });
+          if (dTimeWorkerId) weekCounts[dTimeWorkerId] = (weekCounts[dTimeWorkerId] || 0) + 1;
 
           await upsertSchedule({
             scheduleDate: dateStr,
@@ -316,12 +338,54 @@ export const appRouter = router({
             aTimeWorkerId: assigned[0]?.id ?? null,
             bTimeWorkerId: assigned[1]?.id ?? null,
             cTimeWorkerId: isWeekend ? (assigned[2]?.id ?? null) : null,
+            dTimeWorkerId,
           });
 
           results.push({ date: dateStr, assigned: assigned.length >= requiredCount });
         }
 
         return { success: true, results };
+      }),
+
+    copyFromPrevWeek: publicProcedure
+      .input(z.object({
+        startDate: z.string(), // 이번 주 시작일
+        endDate: z.string(),   // 이번 주 종료일
+      }))
+      .mutation(async ({ input }) => {
+        const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+        // 전주 날짜 범위 계산
+        const prevStart = new Date(input.startDate);
+        prevStart.setDate(prevStart.getDate() - 7);
+        const prevEnd = new Date(input.endDate);
+        prevEnd.setDate(prevEnd.getDate() - 7);
+        const prevStartStr = prevStart.toISOString().split("T")[0];
+        const prevEndStr = prevEnd.toISOString().split("T")[0];
+
+        const prevSchedules = await getSchedulesByDateRange(prevStartStr, prevEndStr);
+        if (prevSchedules.length === 0) return { success: false, message: "전주 스케줄이 없습니다." };
+
+        let copied = 0;
+        for (const prev of prevSchedules) {
+          // 전주 날짜 → 이번 주 날짜로 변환 (+7일)
+          const prevDate = new Date(prev.scheduleDate);
+          prevDate.setDate(prevDate.getDate() + 7);
+          const newDateStr = prevDate.toISOString().split("T")[0];
+          const dayName = DAY_NAMES[prevDate.getDay()];
+
+          await upsertSchedule({
+            scheduleDate: newDateStr,
+            dayOfWeek: dayName,
+            isOperating: prev.isOperating,
+            aTimeWorkerId: prev.aTimeWorkerId,
+            bTimeWorkerId: prev.bTimeWorkerId,
+            cTimeWorkerId: prev.cTimeWorkerId,
+            dTimeWorkerId: (prev as any).dTimeWorkerId ?? null,
+          });
+          copied++;
+        }
+
+        return { success: true, copied };
       }),
   }),
 

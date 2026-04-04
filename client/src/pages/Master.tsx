@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Wand2, Clock, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Wand2, Clock, Plus, X, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
@@ -172,6 +172,21 @@ export default function Master() {
     },
   });
 
+  const copyPrevWeekMutation = trpc.schedules.copyFromPrevWeek.useMutation({
+    onSuccess: (result) => {
+      utils.schedules.getByDateRange.invalidate({ startDate, endDate });
+      utils.schedules.weeklyWorkerCounts.invalidate();
+      if (result.success) {
+        toast.success(`전주 스케줄 ${result.copied}일 복사 완료!`);
+      } else {
+        toast.error(result.message || "전주 스케줄 복사에 실패했습니다.");
+      }
+    },
+    onError: () => {
+      toast.error("전주 스케줄 복사 중 오류가 발생했습니다.");
+    },
+  });
+
   const scheduleMap = useMemo(() => {
     const map: Record<string, ScheduleRow> = {};
     for (const d of weekDates) {
@@ -254,14 +269,26 @@ export default function Master() {
             <h2 className="text-xl font-bold">Master</h2>
             <p className="text-sm text-muted-foreground">스케줄 관리 (관리자용)</p>
           </div>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setAutoAssignDialogOpen(true)}
-          >
-            <Wand2 className="w-4 h-4" />
-            자동 배정
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 bg-transparent"
+              disabled={copyPrevWeekMutation.isPending}
+              onClick={() => copyPrevWeekMutation.mutate({ startDate, endDate })}
+            >
+              <Copy className="w-3.5 h-3.5" />
+              {copyPrevWeekMutation.isPending ? "복사 중..." : "전주 복사"}
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setAutoAssignDialogOpen(true)}
+            >
+              <Wand2 className="w-4 h-4" />
+              자동 배정
+            </Button>
+          </div>
         </div>
 
         {/* Week navigation */}
