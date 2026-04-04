@@ -156,7 +156,7 @@ export async function getWorkerById(id: number) {
   return result[0];
 }
 
-export async function createWorker(data: { name: string; skillLevel: "main" | "sub"; fixedDaysOff: string; preferredDays?: string; payDay?: number; email?: string | null }) {
+export async function createWorker(data: { name: string; skillLevel: "main" | "sub" | "trainee"; fixedDaysOff: string; preferredDays?: string; payDay?: number; email?: string | null; hourlyWage?: number | null; defaultStartTime?: string | null; defaultEndTime?: string | null }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(workers).values({
@@ -166,11 +166,14 @@ export async function createWorker(data: { name: string; skillLevel: "main" | "s
     preferredDays: data.preferredDays || "",
     payDay: data.payDay ?? 14,
     email: data.email ?? null,
-  });
+    hourlyWage: data.hourlyWage ?? null,
+    defaultStartTime: data.defaultStartTime ?? null,
+    defaultEndTime: data.defaultEndTime ?? null,
+  } as any);
   return { id: result[0].insertId };
 }
 
-export async function updateWorker(id: number, data: { name?: string; skillLevel?: "main" | "sub"; fixedDaysOff?: string; preferredDays?: string; payDay?: number; email?: string | null }) {
+export async function updateWorker(id: number, data: { name?: string; skillLevel?: "main" | "sub" | "trainee"; fixedDaysOff?: string; preferredDays?: string; payDay?: number; email?: string | null; hourlyWage?: number | null; defaultStartTime?: string | null; defaultEndTime?: string | null }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const updateSet: Record<string, unknown> = {};
@@ -180,8 +183,11 @@ export async function updateWorker(id: number, data: { name?: string; skillLevel
   if (data.preferredDays !== undefined) updateSet.preferredDays = data.preferredDays;
   if (data.payDay !== undefined) updateSet.payDay = data.payDay;
   if (data.email !== undefined) updateSet.email = data.email;
+  if (data.hourlyWage !== undefined) updateSet.hourlyWage = data.hourlyWage;
+  if (data.defaultStartTime !== undefined) updateSet.defaultStartTime = data.defaultStartTime;
+  if (data.defaultEndTime !== undefined) updateSet.defaultEndTime = data.defaultEndTime;
   if (Object.keys(updateSet).length === 0) return;
-  await db.update(workers).set(updateSet).where(eq(workers.id, id));
+  await db.update(workers).set(updateSet as any).where(eq(workers.id, id));
 }
 
 export async function deleteWorker(id: number) {
