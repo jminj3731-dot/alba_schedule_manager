@@ -544,10 +544,12 @@ export default function Home() {
                           className={`text-[10px] px-1.5 py-0 ${
                             currentWorker.skillLevel === "main"
                               ? "border-primary/50 text-primary"
+                              : currentWorker.skillLevel === "trainee"
+                              ? "border-orange-500/50 text-orange-400"
                               : "border-border text-muted-foreground"
                           }`}
                         >
-                          {currentWorker.skillLevel === "main" ? "메인" : "서브"}
+                          {currentWorker.skillLevel === "main" ? "메인" : currentWorker.skillLevel === "trainee" ? "수습" : "서브"}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">
