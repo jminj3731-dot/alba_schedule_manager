@@ -55,7 +55,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="space-y-3">
             <Input
-              type="password"
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              style={{ WebkitTextSecurity: "disc" } as any}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAuth()}
