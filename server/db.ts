@@ -416,7 +416,7 @@ export async function getSchedulesForWorker(workerId: number, startDate: string,
       eq(schedules.isOperating, true)
     ));
   return allSchedules.filter(s =>
-    s.aTimeWorkerId === workerId || s.bTimeWorkerId === workerId || s.cTimeWorkerId === workerId
+    s.aTimeWorkerId === workerId || s.bTimeWorkerId === workerId || s.cTimeWorkerId === workerId || (s as any).dTimeWorkerId === workerId
   );
 }
 
@@ -433,7 +433,7 @@ export async function getWeeklyWorkerCounts(startDate: string, endDate: string) 
 
   const counts: Record<number, number> = {};
   for (const s of allSchedules) {
-    const workerIds = [s.aTimeWorkerId, s.bTimeWorkerId, s.cTimeWorkerId].filter(Boolean) as number[];
+    const workerIds = [s.aTimeWorkerId, s.bTimeWorkerId, s.cTimeWorkerId, (s as any).dTimeWorkerId].filter(Boolean) as number[];
     for (const wId of workerIds) {
       counts[wId] = (counts[wId] || 0) + 1;
     }
