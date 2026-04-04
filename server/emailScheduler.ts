@@ -82,12 +82,14 @@ const DEFAULT_START_TIMES: Record<string, string> = {
   a: "17:30",
   b: "18:00",
   c: "18:00",
+  d: "18:00",
 };
 
 const DEFAULT_END_TIMES: Record<string, string> = {
   a: "22:00",
   b: "22:00",
   c: "22:00",
+  d: "21:00",
 };
 
 /**
@@ -142,10 +144,11 @@ export async function checkAndSendShiftReminders(): Promise<void> {
     const workerMap = new Map(allWorkers.map(w => [w.id, w]));
 
     // 각 타임 슬롯 확인
-    const timeSlots: Array<{ slot: "a" | "b" | "c"; workerId: number | null }> = [
+    const timeSlots: Array<{ slot: "a" | "b" | "c" | "d"; workerId: number | null }> = [
       { slot: "a", workerId: schedule.aTimeWorkerId },
       { slot: "b", workerId: schedule.bTimeWorkerId },
       { slot: "c", workerId: schedule.cTimeWorkerId },
+      { slot: "d", workerId: (schedule as any).dTimeWorkerId ?? null },
     ];
 
     for (const { slot, workerId } of timeSlots) {
@@ -155,14 +158,12 @@ export async function checkAndSendShiftReminders(): Promise<void> {
       if (!worker || !worker.email) continue;
 
       // 출근/퇴근 시간 결정
-      const startTimeKey = `${slot}TimeStartTime` as keyof typeof schedule;
-      const endTimeKey = `${slot}TimeEndTime` as keyof typeof schedule;
-      const startTime = (schedule[startTimeKey] as string) || DEFAULT_START_TIMES[slot];
-      const endTime = (schedule[endTimeKey] as string) || DEFAULT_END_TIMES[slot];
+      const s = schedule as any;
+      const startTime = s[`${slot}TimeStartTime`] || DEFAULT_START_TIMES[slot];
+      const endTime = s[`${slot}TimeEndTime`] || DEFAULT_END_TIMES[slot];
 
       // 이미 출근 기록이 있으면 두 알림 모두 스킵
-      const actualStartKey = `${slot}TimeActualStartTime` as keyof typeof schedule;
-      if (schedule[actualStartKey]) continue;
+      if (s[`${slot}TimeActualStartTime`]) continue;
 
       // 현재 시간과 출근 시간의 차이 (양수 = 출근 시간까지 남은 분)
       const diff = minutesDiff(startTime, currentTime);
@@ -209,8 +210,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
 
       // ── 퇴근 10분 전 알림 (8~10분 전) ──
       // 이미 퇴근 버튼을 눌렀으면 스킵
-      const actualEndKey = `${slot}TimeActualEndTime` as keyof typeof schedule;
-      if (!schedule[actualEndKey]) {
+      if (!s[`${slot}TimeActualEndTime`]) {
         const endDiff = minutesDiff(endTime, currentTime); // 퇴근시간 - 현재시간 (양수 = 남은 분)
         const keyCheckout = `checkout_${today}_${slot}_${workerId}`;
         if (endDiff >= 8 && endDiff <= 10 && !(await isSent(keyCheckout, today))) {
@@ -332,8 +332,8 @@ export function startEmailScheduler(): void {
     return;
   }
 
-  if (!process.env.RESEND_API_KEY) {
-    console.log("[EmailScheduler] RESEND_API_KEY not set, email scheduler disabled");
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    console.log("[EmailScheduler] GMAIL_USER or GMAIL_APP_PASSWORD not set, email scheduler disabled");
     return;
   }
 
