@@ -21,7 +21,6 @@ import {
   Coffee,
   Clock,
   Search,
-  Lock,
   LogOut,
   LogIn,
   CalendarCheck,
@@ -42,7 +41,6 @@ import { Label } from "@/components/ui/label";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 const WEEKEND_DAYS = ["금", "토"];
-const ADMIN_PASSWORD = "대한한우";
 
 // 가게 위치: 경기도 동두천시 어수로 113-1 (대한한우숯불구이)
 const STORE_LAT = 37.902136;
@@ -149,8 +147,6 @@ export default function Home() {
   const [loggedInName, setLoggedInName] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [viewMode, setViewMode] = useState<"card" | "calendar">("card");
-  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
   const [prefDialogOpen, setPrefDialogOpen] = useState(false);
   const [prefDays, setPrefDays] = useState<string[]>([]);
   const [, navigate] = useLocation();
@@ -418,15 +414,6 @@ export default function Home() {
     setWeekOffset(0);
   }
 
-  function handleAdminAccess() {
-    if (adminPassword === ADMIN_PASSWORD) {
-      setAdminDialogOpen(false);
-      setAdminPassword("");
-      navigate("/settings");
-    } else {
-      toast.error("비밀번호가 올바르지 않습니다.");
-    }
-  }
 
   function handleSavePreferredDays() {
     if (!currentWorker) return;
@@ -496,7 +483,7 @@ export default function Home() {
             {/* Hidden admin access - very subtle */}
             <div className="text-center pt-8">
               <button
-                onClick={() => setAdminDialogOpen(true)}
+                onClick={() => navigate("/settings")}
                 className="text-[10px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
               >
                 관리자
@@ -505,33 +492,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Admin password dialog */}
-        <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
-          <DialogContent className="sm:max-w-xs bg-card border-border">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Lock className="w-4 h-4" />
-                관리자 인증
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 py-2">
-              <Input
-                type="password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAdminAccess()}
-                placeholder="비밀번호 입력"
-                className="bg-secondary/50"
-              />
-            </div>
-            <DialogFooter>
-              <Button variant="outline" className="bg-transparent" onClick={() => setAdminDialogOpen(false)}>
-                취소
-              </Button>
-              <Button onClick={handleAdminAccess}>확인</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   }
@@ -1107,7 +1067,7 @@ export default function Home() {
           {/* Hidden admin access at bottom */}
           <div className="text-center pt-4">
             <button
-              onClick={() => setAdminDialogOpen(true)}
+              onClick={() => navigate("/settings")}
               className="text-[10px] text-muted-foreground/20 hover:text-muted-foreground/50 transition-colors"
             >
               관리자
@@ -1199,33 +1159,6 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      {/* Admin password dialog */}
-      <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
-        <DialogContent className="sm:max-w-xs bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lock className="w-4 h-4" />
-              관리자 인증
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Input
-              type="password"
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdminAccess()}
-              placeholder="비밀번호 입력"
-              className="bg-secondary/50"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" className="bg-transparent" onClick={() => setAdminDialogOpen(false)}>
-              취소
-            </Button>
-            <Button onClick={handleAdminAccess}>확인</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Preferred days dialog */}
       <Dialog open={prefDialogOpen} onOpenChange={setPrefDialogOpen}>
