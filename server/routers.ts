@@ -5,7 +5,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { sendShiftReminderEmail, sendCheckOutNotifyToAdmin, sendAttendanceCorrectionToAdmin } from "./email";
-import { savePushSubscription, deletePushSubscription, VAPID_PUBLIC_KEY } from "./push";
+import { savePushSubscription, deletePushSubscription, sendPushToAll, VAPID_PUBLIC_KEY } from "./push";
 import { checkAndSendShiftReminders } from "./emailScheduler";
 import { exportToGoogleSheets, testGoogleSheetsConnection } from "./googleSheets";
 import { getLastSyncInfo } from "./googleSheetsScheduler";
@@ -651,26 +651,7 @@ export const appRouter = router({
       .input(z.object({ title: z.string(), content: z.string() }))
       .mutation(async ({ input }) => {
         const result = await createAnnouncement(input);
-        // 모든 푸시 구독자에게 알림 전송
-        const { getDb } = await import("./db");
-        const { pushSubscriptions } = await import("../drizzle/schema");
-        const webpush = (await import("web-push")).default;
-        const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY } = process.env as any;
-        if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-          webpush.setVapidDetails(`mailto:${process.env.GMAIL_USER || "admin@example.com"}`, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-          const db = await getDb();
-          if (db) {
-            const subs = await db.select().from(pushSubscriptions);
-            for (const sub of subs) {
-              try {
-                await webpush.sendNotification(
-                  { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-                  JSON.stringify({ title: `📢 ${input.title}`, body: input.content, url: "/", tag: "announcement" })
-                );
-              } catch {}
-            }
-          }
-        }
+        await sendPushToAll(`📢 ${input.title}`, input.content, "/");
         return { success: true, id: result.id };
       }),
 

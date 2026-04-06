@@ -51,24 +51,53 @@ export async function getSubscriptionsByWorkerName(workerName: string) {
     .where(eq(pushSubscriptions.workerName, workerName));
 }
 
-export async function sendPushToWorker(workerName: string, title: string, body: string, url = "/"): Promise<void> {
-  if (!ensureVapid()) return;
-  const subs = await getSubscriptionsByWorkerName(workerName);
+async function sendToSubscription(sub: { endpoint: string; p256dh: string; auth: string }, payload: object): Promise<boolean> {
   const db = await getDb();
-  for (const sub of subs) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify({ title, body, url, tag: `shift-${Date.now()}` })
-      );
-    } catch (err: any) {
-      // 410 Gone = 구독 만료 → DB에서 삭제
-      if (err.statusCode === 410 && db) {
-        await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, sub.endpoint));
-      }
-      console.error(`[Push] Failed to send to ${workerName}:`, err.message);
+  try {
+    await webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      JSON.stringify(payload)
+    );
+    return true;
+  } catch (err: any) {
+    if ((err.statusCode === 410 || err.statusCode === 404) && db) {
+      await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, sub.endpoint));
+      console.log(`[Push] Removed expired subscription`);
+    } else {
+      console.error(`[Push] Send failed (status=${err.statusCode}):`, err.message);
     }
+    return false;
   }
+}
+
+export async function sendPushToWorker(workerName: string, title: string, body: string, url = "/"): Promise<void> {
+  if (!ensureVapid()) {
+    console.warn("[Push] VAPID not configured, skipping push");
+    return;
+  }
+  const subs = await getSubscriptionsByWorkerName(workerName);
+  if (subs.length === 0) return;
+  for (const sub of subs) {
+    const ok = await sendToSubscription(sub, { title, body, url, tag: `shift-${Date.now()}` });
+    if (ok) console.log(`[Push] ✅ Sent to ${workerName}`);
+  }
+}
+
+export async function sendPushToAll(title: string, body: string, url = "/"): Promise<void> {
+  if (!ensureVapid()) {
+    console.warn("[Push] VAPID not configured, skipping push");
+    return;
+  }
+  const db = await getDb();
+  if (!db) return;
+  const subs = await db.select().from(pushSubscriptions);
+  console.log(`[Push] Sending announcement to ${subs.length} subscribers`);
+  let success = 0;
+  for (const sub of subs) {
+    const ok = await sendToSubscription(sub, { title, body, url, tag: "announcement" });
+    if (ok) success++;
+  }
+  console.log(`[Push] ✅ Announcement sent to ${success}/${subs.length}`);
 }
 
 export { VAPID_PUBLIC_KEY };
