@@ -53,6 +53,35 @@ export function resetDbConnection() {
   _pool = null;
 }
 
+async function ensureTables(pool: any) {
+  try {
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS \`pushSubscriptions\` (
+        \`id\` int AUTO_INCREMENT NOT NULL,
+        \`workerId\` int,
+        \`workerName\` varchar(100) NOT NULL,
+        \`endpoint\` text NOT NULL,
+        \`p256dh\` text NOT NULL,
+        \`auth\` varchar(100) NOT NULL,
+        \`createdAt\` timestamp NOT NULL DEFAULT (now()),
+        CONSTRAINT \`pushSubscriptions_id\` PRIMARY KEY(\`id\`)
+      )
+    `);
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS \`announcements\` (
+        \`id\` int AUTO_INCREMENT NOT NULL,
+        \`title\` varchar(100) NOT NULL,
+        \`content\` text NOT NULL,
+        \`isActive\` boolean NOT NULL DEFAULT true,
+        \`createdAt\` timestamp NOT NULL DEFAULT (now()),
+        CONSTRAINT \`announcements_id\` PRIMARY KEY(\`id\`)
+      )
+    `);
+  } catch (err: any) {
+    console.warn('[Database] ensureTables warning:', err.message);
+  }
+}
+
 export async function getDb() {
   if (!_db) {
     if (!_pool) {
@@ -60,6 +89,7 @@ export async function getDb() {
     }
     if (_pool) {
       try {
+        await ensureTables(_pool);
         _db = drizzle(_pool as any);
       } catch (error) {
         console.warn('[Database] Failed to create drizzle instance:', error);
