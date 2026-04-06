@@ -650,8 +650,14 @@ export const appRouter = router({
     create: publicProcedure
       .input(z.object({ title: z.string(), content: z.string() }))
       .mutation(async ({ input }) => {
+        console.log(`[Announcement] Creating: "${input.title}"`);
         const result = await createAnnouncement(input);
-        await sendPushToAll(`📢 ${input.title}`, input.content, "/");
+        console.log(`[Announcement] Saved to DB, id=${result.id}. Sending push...`);
+        try {
+          await sendPushToAll(`📢 ${input.title}`, input.content, "/");
+        } catch (err: any) {
+          console.error("[Announcement] Push failed:", err.message);
+        }
         return { success: true, id: result.id };
       }),
 
