@@ -24,6 +24,10 @@ import {
   markNotificationAsRead,
   notifyWorkerOnScheduleView,
   notifyWorkerOnPreferredDaysUpdate,
+  createAnnouncement,
+  getActiveAnnouncements,
+  deactivateAnnouncement,
+  getAllAnnouncements,
   updateScheduleEndTime,
   updateScheduleTime,
   getMonthlyStats,
@@ -630,6 +634,50 @@ export const appRouter = router({
           metadata: JSON.stringify(input),
         });
 
+        return { success: true };
+      }),
+  }),
+
+  announcements: router({
+    getActive: publicProcedure.query(async () => {
+      return getActiveAnnouncements();
+    }),
+
+    getAll: publicProcedure.query(async () => {
+      return getAllAnnouncements();
+    }),
+
+    create: publicProcedure
+      .input(z.object({ title: z.string(), content: z.string() }))
+      .mutation(async ({ input }) => {
+        const result = await createAnnouncement(input);
+        // 모든 푸시 구독자에게 알림 전송
+        const { getDb } = await import("./db");
+        const { pushSubscriptions } = await import("../drizzle/schema");
+        const webpush = (await import("web-push")).default;
+        const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY } = process.env as any;
+        if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+          webpush.setVapidDetails(`mailto:${process.env.GMAIL_USER || "admin@example.com"}`, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+          const db = await getDb();
+          if (db) {
+            const subs = await db.select().from(pushSubscriptions);
+            for (const sub of subs) {
+              try {
+                await webpush.sendNotification(
+                  { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                  JSON.stringify({ title: `📢 ${input.title}`, body: input.content, url: "/", tag: "announcement" })
+                );
+              } catch {}
+            }
+          }
+        }
+        return { success: true, id: result.id };
+      }),
+
+    deactivate: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deactivateAnnouncement(input.id);
         return { success: true };
       }),
   }),

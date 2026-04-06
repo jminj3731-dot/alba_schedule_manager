@@ -1,7 +1,7 @@
 import { eq, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { createPool as mysqlCreatePool } from "mysql2/promise";
-import { InsertUser, users, workers, schedules, notificationLogs, activityLogs, appSettings, attendanceCorrections, type InsertWorker, type InsertSchedule, type InsertNotificationLog, type InsertActivityLog, type ActivityLog, type InsertAttendanceCorrection } from "../drizzle/schema";
+import { InsertUser, users, workers, schedules, notificationLogs, activityLogs, appSettings, attendanceCorrections, announcements, type InsertWorker, type InsertSchedule, type InsertNotificationLog, type InsertActivityLog, type ActivityLog, type InsertAttendanceCorrection } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -748,4 +748,33 @@ export async function createAttendanceCorrection(data: InsertAttendanceCorrectio
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.insert(attendanceCorrections).values(data);
+}
+
+// ============ Announcements ============
+
+export async function createAnnouncement(data: { title: string; content: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(announcements).values({ title: data.title, content: data.content });
+  return { id: result[0].insertId };
+}
+
+export async function getActiveAnnouncements() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(announcements)
+    .where(eq(announcements.isActive, true))
+    .orderBy(announcements.createdAt);
+}
+
+export async function deactivateAnnouncement(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(announcements).set({ isActive: false }).where(eq(announcements.id, id));
+}
+
+export async function getAllAnnouncements() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(announcements).orderBy(announcements.createdAt);
 }

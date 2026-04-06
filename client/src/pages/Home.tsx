@@ -29,6 +29,8 @@ import {
   CheckCircle,
   Bell,
   BellOff,
+  Megaphone,
+  X,
 } from "lucide-react";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import {
@@ -598,6 +600,9 @@ export default function Home() {
               </CardContent>
             </Card>
           )}
+
+          {/* 공지사항 배너 */}
+          <AnnouncementBanner />
 
           {/* 푸시 알림 배너 */}
           {pushSupported && !pushSubscribed && pushPermission !== "denied" && (
@@ -1333,6 +1338,43 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function AnnouncementBanner() {
+  const { data: announcements = [] } = trpc.announcements.getActive.useQuery();
+  const [dismissed, setDismissed] = useState<number[]>(() => {
+    try { return JSON.parse(localStorage.getItem("dismissed_announcements") || "[]"); } catch { return []; }
+  });
+
+  const visible = announcements.filter((a) => !dismissed.includes(a.id));
+  if (visible.length === 0) return null;
+
+  function dismiss(id: number) {
+    const next = [...dismissed, id];
+    setDismissed(next);
+    localStorage.setItem("dismissed_announcements", JSON.stringify(next));
+  }
+
+  return (
+    <div className="space-y-2">
+      {visible.map((a) => (
+        <Card key={a.id} className="bg-primary/10 border-primary/30">
+          <CardContent className="p-3">
+            <div className="flex items-start gap-2">
+              <Megaphone className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-primary">{a.title}</p>
+                <p className="text-xs text-foreground/80 mt-0.5 whitespace-pre-wrap">{a.content}</p>
+              </div>
+              <button className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground" onClick={() => dismiss(a.id)}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

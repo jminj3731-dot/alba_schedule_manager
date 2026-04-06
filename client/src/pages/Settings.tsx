@@ -22,7 +22,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Bell, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Bell, Save, Megaphone, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -64,11 +65,33 @@ export default function Settings() {
   const [formDefaultEndTime, setFormDefaultEndTime] = useState<string>("");
   const [formHourlyWage, setFormHourlyWage] = useState<string>("");
 
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementContent, setAnnouncementContent] = useState("");
+
   const utils = trpc.useUtils();
   const { data: workers = [], isLoading } = trpc.workers.list.useQuery();
   const weekRange = useMemo(() => getWeekRange(), []);
   const { data: weekCounts = {} } = trpc.schedules.weeklyWorkerCounts.useQuery(weekRange);
+  const { data: allAnnouncements = [] } = trpc.announcements.getAll.useQuery();
   const createActivityLogMutation = trpc.activityLogs.create.useMutation();
+
+  const createAnnouncementMutation = trpc.announcements.create.useMutation({
+    onSuccess: () => {
+      utils.announcements.getAll.invalidate();
+      utils.announcements.getActive.invalidate();
+      setAnnouncementTitle("");
+      setAnnouncementContent("");
+      toast.success("공지가 전송되었습니다.");
+    },
+    onError: () => toast.error("공지 전송에 실패했습니다."),
+  });
+
+  const deactivateAnnouncementMutation = trpc.announcements.deactivate.useMutation({
+    onSuccess: () => {
+      utils.announcements.getAll.invalidate();
+      utils.announcements.getActive.invalidate();
+    },
+  });
 
   const createMutation = trpc.workers.create.useMutation({
     onSuccess: (_data, variables) => {
@@ -504,6 +527,68 @@ export default function Settings() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* 공지사항 섹션 */}
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Megaphone className="w-4 h-4 text-primary" />
+              공지사항
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <Input
+                placeholder="제목 (예: 오늘 단체 예약 있어요)"
+                value={announcementTitle}
+                onChange={(e) => setAnnouncementTitle(e.target.value)}
+                className="bg-secondary/50 h-9 text-sm"
+              />
+              <Textarea
+                placeholder="내용을 입력하세요"
+                value={announcementContent}
+                onChange={(e) => setAnnouncementContent(e.target.value)}
+                className="bg-secondary/50 text-sm resize-none"
+                rows={3}
+              />
+              <Button
+                className="w-full gap-1.5"
+                disabled={!announcementTitle.trim() || !announcementContent.trim() || createAnnouncementMutation.isPending}
+                onClick={() => createAnnouncementMutation.mutate({ title: announcementTitle, content: announcementContent })}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {createAnnouncementMutation.isPending ? "전송 중..." : "공지 전송 (푸시 알림 발송)"}
+              </Button>
+            </div>
+
+            {/* 공지 목록 */}
+            {allAnnouncements.length > 0 && (
+              <div className="space-y-2 pt-1 border-t border-border/50">
+                <p className="text-[10px] text-muted-foreground font-medium">공지 내역</p>
+                {allAnnouncements.slice().reverse().map((a) => (
+                  <div key={a.id} className={`flex items-start gap-2 p-2 rounded-lg border text-xs ${a.isActive ? "border-primary/30 bg-primary/5" : "border-border/30 bg-secondary/20 opacity-60"}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="font-medium truncate">{a.title}</span>
+                        {a.isActive && <Badge className="text-[9px] px-1 py-0 h-4 bg-primary/20 text-primary border-primary/30">활성</Badge>}
+                      </div>
+                      <p className="text-muted-foreground text-[11px] line-clamp-2">{a.content}</p>
+                      <p className="text-muted-foreground/50 text-[10px] mt-0.5">{new Date(a.createdAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                    </div>
+                    {a.isActive && (
+                      <button
+                        className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground"
+                        onClick={() => deactivateAnnouncementMutation.mutate({ id: a.id })}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );
