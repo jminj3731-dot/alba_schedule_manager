@@ -320,6 +320,18 @@ export async function checkAndSendPaydayEveEmails(): Promise<void> {
       } else {
         console.error(`[EmailScheduler] ❌ Payday eve email failed for ${worker.name}: ${result.error}`);
       }
+
+      // Push 알림 발송 (이메일 성공 여부와 무관하게)
+      try {
+        await sendPushToWorker(
+          worker.name,
+          `💰 내일(${worker.payDay}일) 급여일이에요!`,
+          `이번 달 예상 급여: ${totalPay.toLocaleString()}원 (${totalHours}h × ${hourlyWage.toLocaleString()}원)`
+        );
+        console.log(`[EmailScheduler] ✅ Payday eve push sent to ${worker.name}`);
+      } catch (pushErr: any) {
+        console.error(`[EmailScheduler] ❌ Payday eve push failed for ${worker.name}: ${pushErr.message}`);
+      }
     }
   } catch (error: any) {
     console.error("[EmailScheduler] Payday eve check error:", error);
