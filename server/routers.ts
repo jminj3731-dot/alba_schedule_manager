@@ -5,6 +5,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { sendShiftReminderEmail, sendCheckOutNotifyToAdmin, sendAttendanceCorrectionToAdmin } from "./email";
+import { savePushSubscription, deletePushSubscription, VAPID_PUBLIC_KEY } from "./push";
 import { checkAndSendShiftReminders } from "./emailScheduler";
 import { exportToGoogleSheets, testGoogleSheetsConnection } from "./googleSheets";
 import { getLastSyncInfo } from "./googleSheetsScheduler";
@@ -629,6 +630,32 @@ export const appRouter = router({
           metadata: JSON.stringify(input),
         });
 
+        return { success: true };
+      }),
+  }),
+
+  push: router({
+    getVapidPublicKey: publicProcedure.query(() => {
+      return { publicKey: VAPID_PUBLIC_KEY };
+    }),
+
+    subscribe: publicProcedure
+      .input(z.object({
+        workerId: z.number().nullable(),
+        workerName: z.string(),
+        endpoint: z.string(),
+        p256dh: z.string(),
+        auth: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        await savePushSubscription(input);
+        return { success: true };
+      }),
+
+    unsubscribe: publicProcedure
+      .input(z.object({ endpoint: z.string() }))
+      .mutation(async ({ input }) => {
+        await deletePushSubscription(input.endpoint);
         return { success: true };
       }),
   }),

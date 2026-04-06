@@ -197,3 +197,19 @@ export const attendanceCorrections = mysqlTable("attendanceCorrections", {
 
 export type AttendanceCorrection = typeof attendanceCorrections.$inferSelect;
 export type InsertAttendanceCorrection = typeof attendanceCorrections.$inferInsert;
+
+/**
+ * Push subscriptions - 알바생 웹 푸시 구독 정보
+ */
+export const pushSubscriptions = mysqlTable("pushSubscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  workerId: int("workerId"),
+  workerName: varchar("workerName", { length: 100 }).notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: varchar("auth", { length: 100 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;

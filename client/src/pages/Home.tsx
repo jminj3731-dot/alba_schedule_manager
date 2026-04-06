@@ -27,7 +27,10 @@ import {
   Users,
   Pencil,
   CheckCircle,
+  Bell,
+  BellOff,
 } from "lucide-react";
+import { usePushNotification } from "@/hooks/usePushNotification";
 import {
   Popover,
   PopoverContent,
@@ -376,6 +379,11 @@ export default function Home() {
     return workers.find((w) => w.name === loggedInName) || null;
   }, [loggedInName, workers]);
 
+  const { isSupported: pushSupported, permission: pushPermission, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotification(
+    currentWorker?.id ?? null,
+    loggedInName
+  );
+
   const mySchedules = useMemo(() => {
     if (!currentWorker) return [];
     return schedules.filter(
@@ -589,6 +597,44 @@ export default function Home() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* 푸시 알림 배너 */}
+          {pushSupported && !pushSubscribed && pushPermission !== "denied" && (
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-primary shrink-0" />
+                    <p className="text-xs text-foreground">
+                      출근 알림을 받으려면 알림을 허용해주세요
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs shrink-0"
+                    disabled={pushLoading}
+                    onClick={subscribePush}
+                  >
+                    {pushLoading ? "처리 중..." : "허용"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {pushSupported && pushSubscribed && (
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Bell className="w-3.5 h-3.5 text-green-500" />
+                <span>알림 켜짐</span>
+              </div>
+              <button
+                className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground"
+                onClick={unsubscribePush}
+              >
+                <BellOff className="w-3 h-3" />
+              </button>
+            </div>
           )}
 
           {/* 오늘 출퇴근 고정 섹션 */}

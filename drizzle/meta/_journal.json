@@ -92,6 +92,13 @@
       "when": 1775234859773,
       "tag": "0012_sharp_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1775463020578,
+      "tag": "0013_premium_thunderbolt",
+      "breakpoints": true
     }
   ]
 }
