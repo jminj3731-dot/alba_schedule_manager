@@ -1,6 +1,6 @@
 {
-  "name": "ALBA Schedule",
-  "short_name": "ALBA",
+  "name": "대한한우 스케줄",
+  "short_name": "대한한우",
   "description": "대한한우숯불구이 알바생 스케줄 관리",
   "start_url": "/",
   "display": "standalone",
