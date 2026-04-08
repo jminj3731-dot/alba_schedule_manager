@@ -2,19 +2,17 @@ import nodemailer from "nodemailer";
 
 function createTransporter() {
   return nodemailer.createTransport({
-    host: "smtp.gmail.com",
+    host: "smtp-relay.brevo.com",
     port: 587,
     secure: false,
-    requireTLS: true,
-    family: 4,
     auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
+      user: process.env.BREVO_SMTP_USER,
+      pass: process.env.BREVO_SMTP_PASS,
     },
   });
 }
 
-const FROM_EMAIL = `대한한우숯불구이 <${process.env.GMAIL_USER}>`;
+const FROM_EMAIL = `대한한우숯불구이 <${process.env.BREVO_FROM_EMAIL || process.env.BREVO_SMTP_USER}>`;
 
 /** 날짜 포맷 공통 유틸 - KST 기준 요일 계산 */
 function formatDate(scheduleDate: string): string {
@@ -731,8 +729,62 @@ export async function sendPaydayEveEmail({
  */
 export async function testResendConnection(): Promise<boolean> {
   try {
-    return !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+    return !!(process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_PASS);
   } catch {
     return false;
+  }
+}
+
+/**
+ * 알림 테스트 이메일 발송
+ */
+export async function sendTestEmail({
+  to,
+  workerName,
+}: {
+  to: string;
+  workerName: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const transporter = createTransporter();
+    const result = await transporter.sendMail({
+      from: FROM_EMAIL,
+      to,
+      subject: "[대한한우숯불구이] 알림 테스트 이메일",
+      html: `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background-color:#ffffff;">
+    <div style="background-color:#CC0000;padding:24px 20px;text-align:center;">
+      <h1 style="color:#ffffff;margin:0;font-size:20px;font-weight:bold;">대한한우숯불구이</h1>
+      <p style="color:#ffcccc;margin:6px 0 0;font-size:13px;">경기도 동두천시 어수로 113-1</p>
+    </div>
+    <div style="padding:28px 20px;">
+      <p style="font-size:16px;color:#333;margin:0 0 16px;">
+        <strong style="color:#CC0000;">${workerName}</strong>님, 안녕하세요! 👋
+      </p>
+      <p style="font-size:15px;color:#555;margin:0 0 20px;line-height:1.6;">
+        이메일 알림이 <strong>정상 작동</strong>합니다.<br>
+        이 메일은 알림 테스트용으로 발송된 메일입니다.
+      </p>
+      <div style="background-color:#fff8f8;border:2px solid #CC0000;border-radius:12px;padding:20px;margin-bottom:20px;text-align:center;">
+        <p style="margin:0;font-size:14px;color:#CC0000;font-weight:bold;">✅ 이메일 알림 정상</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+      `,
+    });
+    console.log("[Email] Test email sent:", result.messageId);
+    return { success: true };
+  } catch (error) {
+    console.error("[Email] Failed to send test email:", error);
+    return { success: false, error: String(error) };
   }
 }

@@ -163,61 +163,62 @@ export async function checkAndSendShiftReminders(): Promise<void> {
       const startTime = s[`${slot}TimeStartTime`] || DEFAULT_START_TIMES[slot];
       const endTime = s[`${slot}TimeEndTime`] || DEFAULT_END_TIMES[slot];
 
-      // 이미 출근 기록이 있으면 두 알림 모두 스킵
-      if (s[`${slot}TimeActualStartTime`]) continue;
-
       // 현재 시간과 출근 시간의 차이 (양수 = 출근 시간까지 남은 분)
       const diff = minutesDiff(startTime, currentTime);
 
-      // ── 1시간 전 알림 (55~65분 전) ──
-      const key1h = `1h_${today}_${slot}_${workerId}`;
-      if (diff >= 55 && diff <= 65 && !(await isSent(key1h, today))) {
-        console.log(`[EmailScheduler] Sending 1h reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${startTime}`);
-        // 이메일
-        if (worker.email) {
-          const result = await sendShiftReminderEmail({
-            to: worker.email,
-            workerName: worker.name,
-            scheduleDate: today,
-            timeSlot: slot.toUpperCase() as "A" | "B" | "C",
-            startTime,
-            endTime,
-          });
-          if (result.success) console.log(`[EmailScheduler] ✅ 1h email sent to ${worker.name}`);
+      // ── 출근 전 알림 (아직 출근 기록 없을 때만) ──
+      if (!s[`${slot}TimeActualStartTime`]) {
+        // ── 1시간 전 알림 (55~65분 전) ──
+        const key1h = `1h_${today}_${slot}_${workerId}`;
+        if (diff >= 55 && diff <= 65 && !(await isSent(key1h, today))) {
+          console.log(`[EmailScheduler] Sending 1h reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${startTime}`);
+          // 이메일
+          if (worker.email) {
+            const result = await sendShiftReminderEmail({
+              to: worker.email,
+              workerName: worker.name,
+              scheduleDate: today,
+              timeSlot: slot.toUpperCase() as "A" | "B" | "C",
+              startTime,
+              endTime,
+            });
+            if (result.success) console.log(`[EmailScheduler] ✅ 1h email sent to ${worker.name}`);
+          }
+          // 푸시
+          await sendPushToWorker(worker.name, `${worker.name}님, 1시간 후 출근이에요!`, `${slot.toUpperCase()}타임 ${startTime} 출근 예정입니다.`);
+          await markSent(key1h, today);
         }
-        // 푸시
-        await sendPushToWorker(worker.name, `${worker.name}님, 1시간 후 출근이에요!`, `${slot.toUpperCase()}타임 ${startTime} 출근 예정입니다.`);
-        await markSent(key1h, today);
+
+        // ── 출근 시간 알림 (-2~5분, 스케줄러 5분 간격 커버) ──
+        const keyNow = `now_${today}_${slot}_${workerId}`;
+        if (diff >= -2 && diff <= 5 && !(await isSent(keyNow, today))) {
+          console.log(`[EmailScheduler] Sending check-in now reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${startTime}`);
+          // 이메일
+          if (worker.email) {
+            const result = await sendCheckInNowEmail({
+              to: worker.email,
+              workerName: worker.name,
+              scheduleDate: today,
+              timeSlot: slot.toUpperCase() as "A" | "B" | "C",
+              startTime,
+              endTime,
+            });
+            if (result.success) console.log(`[EmailScheduler] ✅ Check-in now email sent to ${worker.name}`);
+          }
+          // 푸시
+          await sendPushToWorker(worker.name, `${worker.name}님, 지금 출근 버튼을 눌러주세요!`, `${slot.toUpperCase()}타임 ${startTime} 출근 시간입니다.`);
+          await markSent(keyNow, today);
+        }
       }
 
-      // ── 출근 시간 정각 알림 (0~2분 전, 단 한 번) ──
-      const keyNow = `now_${today}_${slot}_${workerId}`;
-      if (diff >= 0 && diff <= 2 && !(await isSent(keyNow, today))) {
-        console.log(`[EmailScheduler] Sending check-in now reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${startTime}`);
-        // 이메일
-        if (worker.email) {
-          const result = await sendCheckInNowEmail({
-            to: worker.email,
-            workerName: worker.name,
-            scheduleDate: today,
-            timeSlot: slot.toUpperCase() as "A" | "B" | "C",
-            startTime,
-            endTime,
-          });
-          if (result.success) console.log(`[EmailScheduler] ✅ Check-in now email sent to ${worker.name}`);
-        }
-        // 푸시
-        await sendPushToWorker(worker.name, `${worker.name}님, 지금 출근 버튼을 눌러주세요!`, `${slot.toUpperCase()}타임 ${startTime} 출근 시간입니다.`);
-        await markSent(keyNow, today);
-      }
-
-      // ── 퇴근 10분 전 알림 (8~10분 전) ──
+      // ── 퇴근 알림 (퇴근 기록 없을 때만, 출근 여부 무관) ──
       if (!s[`${slot}TimeActualEndTime`]) {
         const endDiff = minutesDiff(endTime, currentTime);
+
+        // 10분 전 사전 알림 (5~15분 전)
         const keyCheckout = `checkout_${today}_${slot}_${workerId}`;
-        if (endDiff >= 8 && endDiff <= 10 && !(await isSent(keyCheckout, today))) {
+        if (endDiff >= 5 && endDiff <= 15 && !(await isSent(keyCheckout, today))) {
           console.log(`[EmailScheduler] Sending check-out reminder to ${worker.name} for ${slot.toUpperCase()}타임 at ${endTime}`);
-          // 이메일
           if (worker.email) {
             const result = await sendCheckOutNowEmail({
               to: worker.email,
@@ -229,9 +230,21 @@ export async function checkAndSendShiftReminders(): Promise<void> {
             });
             if (result.success) console.log(`[EmailScheduler] ✅ Check-out email sent to ${worker.name}`);
           }
-          // 푸시
           await sendPushToWorker(worker.name, `${worker.name}님, 10분 후 퇴근이에요!`, `${slot.toUpperCase()}타임 ${endTime} 퇴근 예정입니다.`);
           await markSent(keyCheckout, today);
+        }
+
+        // 퇴근 시간 정각 알림 (-2~5분): 버튼 미입력 여부에 따라 메시지 분기
+        const keyCheckoutNow = `checkout_now_${today}_${slot}_${workerId}`;
+        if (endDiff >= -2 && endDiff <= 5 && !(await isSent(keyCheckoutNow, today))) {
+          const hasCheckedIn = !!s[`${slot}TimeActualStartTime`];
+          const pushTitle = hasCheckedIn
+            ? `${worker.name}님, 퇴근 버튼을 누르지 않았어요!`
+            : `${worker.name}님, 출퇴근 버튼을 누르지 않았어요!`;
+          const pushBody = `원활한 기록을 위해 ${slot.toUpperCase()}타임 출퇴근 버튼을 눌러주세요.`;
+          console.log(`[EmailScheduler] Sending checkout-now nudge to ${worker.name} (checkedIn=${hasCheckedIn})`);
+          await sendPushToWorker(worker.name, pushTitle, pushBody);
+          await markSent(keyCheckoutNow, today);
         }
       }
     }
@@ -347,8 +360,8 @@ export function startEmailScheduler(): void {
     return;
   }
 
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    console.log("[EmailScheduler] GMAIL_USER or GMAIL_APP_PASSWORD not set, email scheduler disabled");
+  if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_PASS) {
+    console.log("[EmailScheduler] BREVO_SMTP_USER or BREVO_SMTP_PASS not set, email scheduler disabled");
     return;
   }
 

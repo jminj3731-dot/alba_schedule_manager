@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
-const VAPID_EMAIL = process.env.GMAIL_USER || "admin@example.com";
+const VAPID_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.BREVO_SMTP_USER || "admin@example.com";
 
 let vapidConfigured = false;
 

@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Bell, Save, Megaphone, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Bell, Save, Megaphone, X, FlaskConical } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -92,6 +92,15 @@ export default function Settings() {
       utils.announcements.getAll.invalidate();
       utils.announcements.getActive.invalidate();
     },
+  });
+
+  const testNotificationMutation = trpc.notification.test.useMutation({
+    onSuccess: (data) => {
+      const pushMsg = data.push.success ? `푸시 ✅` : `푸시 ❌ (${data.push.message})`;
+      const emailMsg = data.email.success ? `이메일 ✅` : `이메일 ❌ (${data.email.message})`;
+      toast.success(`알림 테스트 완료: ${pushMsg} / ${emailMsg}`);
+    },
+    onError: () => toast.error("알림 테스트에 실패했습니다."),
   });
 
   const createMutation = trpc.workers.create.useMutation({
@@ -261,6 +270,16 @@ export default function Settings() {
             <Button variant="outline" size="sm" className="gap-1.5 bg-transparent" onClick={() => setAnnouncementDialogOpen(true)}>
               <Megaphone className="w-3.5 h-3.5" />
               공지
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 bg-transparent"
+              disabled={testNotificationMutation.isPending}
+              onClick={() => testNotificationMutation.mutate()}
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              {testNotificationMutation.isPending ? "발송 중..." : "알림테스트"}
             </Button>
             <Button onClick={openCreateDialog} size="sm" className="gap-1.5">
               <Plus className="w-4 h-4" />

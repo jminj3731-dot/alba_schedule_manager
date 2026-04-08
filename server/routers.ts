@@ -4,8 +4,8 @@ import { notifyOwner } from "./_core/notification";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { sendShiftReminderEmail, sendCheckOutNotifyToAdmin, sendAttendanceCorrectionToAdmin } from "./email";
-import { savePushSubscription, deletePushSubscription, sendPushToAll, VAPID_PUBLIC_KEY } from "./push";
+import { sendShiftReminderEmail, sendCheckOutNotifyToAdmin, sendAttendanceCorrectionToAdmin, sendTestEmail } from "./email";
+import { savePushSubscription, deletePushSubscription, sendPushToAll, sendPushToWorker, getSubscriptionsByWorkerName, VAPID_PUBLIC_KEY } from "./push";
 import { checkAndSendShiftReminders } from "./emailScheduler";
 import { exportToGoogleSheets, testGoogleSheetsConnection } from "./googleSheets";
 import { getLastSyncInfo } from "./googleSheetsScheduler";
@@ -692,6 +692,38 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await deletePushSubscription(input.endpoint);
         return { success: true };
+      }),
+  }),
+
+  notification: router({
+    test: publicProcedure
+      .mutation(async () => {
+        const TARGET_WORKER = "전민서";
+        const TEST_EMAIL = "jminj3731@gmail.com";
+
+        // 1. 푸시 알림 발송
+        let pushSuccess = false;
+        let pushMessage = "";
+        try {
+          const subs = await getSubscriptionsByWorkerName(TARGET_WORKER);
+          if (subs.length === 0) {
+            pushMessage = `${TARGET_WORKER}님의 푸시 구독이 없습니다`;
+          } else {
+            await sendPushToWorker(TARGET_WORKER, "알림 테스트", "푸시 알림이 정상 작동합니다!");
+            pushSuccess = true;
+            pushMessage = `${TARGET_WORKER}님에게 푸시 발송 완료 (구독 ${subs.length}건)`;
+          }
+        } catch (err: any) {
+          pushMessage = `푸시 발송 실패: ${err.message}`;
+        }
+
+        // 2. 이메일 발송
+        const emailResult = await sendTestEmail({ to: TEST_EMAIL, workerName: TARGET_WORKER });
+
+        return {
+          push: { success: pushSuccess, message: pushMessage },
+          email: { success: emailResult.success, message: emailResult.success ? `${TEST_EMAIL}로 이메일 발송 완료` : `이메일 발송 실패: ${emailResult.error}` },
+        };
       }),
   }),
 });
