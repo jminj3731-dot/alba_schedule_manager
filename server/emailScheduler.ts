@@ -360,8 +360,8 @@ export function startEmailScheduler(): void {
     return;
   }
 
-  if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_PASS) {
-    console.log("[EmailScheduler] BREVO_SMTP_USER or BREVO_SMTP_PASS not set, email scheduler disabled");
+  if (!process.env.BREVO_API_KEY) {
+    console.log("[EmailScheduler] BREVO_API_KEY not set, email scheduler disabled");
     return;
   }
 

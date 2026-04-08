@@ -1,18 +1,29 @@
-import nodemailer from "nodemailer";
+const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
+const FROM_NAME = "대한한우숯불구이";
+const FROM_EMAIL_ADDR = process.env.BREVO_FROM_EMAIL || "jminj3731@gmail.com";
+const FROM_EMAIL = `${FROM_NAME} <${FROM_EMAIL_ADDR}>`;
 
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: "smtp-relay.brevo.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.BREVO_SMTP_USER,
-      pass: process.env.BREVO_SMTP_PASS,
+async function sendBrevoEmail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<{ messageId?: string }> {
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": BREVO_API_KEY,
+      "content-type": "application/json",
     },
+    body: JSON.stringify({
+      sender: { name: FROM_NAME, email: FROM_EMAIL_ADDR },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
   });
+  if (!response.ok) {
+    const err = await response.text().catch(() => "");
+    throw new Error(`Brevo API error ${response.status}: ${err}`);
+  }
+  const data = await response.json() as any;
+  return { messageId: data.messageId };
 }
-
-const FROM_EMAIL = `대한한우숯불구이 <${process.env.BREVO_FROM_EMAIL || process.env.BREVO_SMTP_USER}>`;
 
 /** 날짜 포맷 공통 유틸 - KST 기준 요일 계산 */
 function formatDate(scheduleDate: string): string {
@@ -120,10 +131,8 @@ export async function sendShiftReminderEmail({
   `.trim();
 
   try {
-    const transporter = createTransporter();
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: [to],
+    const result = await sendBrevoEmail({
+      to,
       subject,
       html,
     });
@@ -242,10 +251,8 @@ export async function sendCheckInNowEmail({
   `.trim();
 
   try {
-    const transporter = createTransporter();
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: [to],
+    const result = await sendBrevoEmail({
+      to,
       subject,
       html,
     });
@@ -356,10 +363,8 @@ export async function sendCheckOutNowEmail({
   `.trim();
 
   try {
-    const transporter = createTransporter();
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: [to],
+    const result = await sendBrevoEmail({
+      to,
       subject,
       html,
     });
@@ -454,10 +459,8 @@ export async function sendCheckOutNotifyToAdmin({
   `.trim();
 
   try {
-    const transporter = createTransporter();
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: [to],
+    const result = await sendBrevoEmail({
+      to,
       subject,
       html,
     });
@@ -557,10 +560,8 @@ export async function sendAttendanceCorrectionToAdmin({
 </html>`.trim();
 
   try {
-    const transporter = createTransporter();
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: [to],
+    const result = await sendBrevoEmail({
+      to,
       subject,
       html,
     });
@@ -710,10 +711,8 @@ export async function sendPaydayEveEmail({
 </html>`.trim();
 
   try {
-    const transporter = createTransporter();
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: [to],
+    const result = await sendBrevoEmail({
+      to,
       subject,
       html,
     });
@@ -729,7 +728,7 @@ export async function sendPaydayEveEmail({
  */
 export async function testResendConnection(): Promise<boolean> {
   try {
-    return !!(process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_PASS);
+    return !!process.env.BREVO_API_KEY;
   } catch {
     return false;
   }
@@ -746,9 +745,7 @@ export async function sendTestEmail({
   workerName: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    const transporter = createTransporter();
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
+    const result = await sendBrevoEmail({
       to,
       subject: "[대한한우숯불구이] 알림 테스트 이메일",
       html: `
