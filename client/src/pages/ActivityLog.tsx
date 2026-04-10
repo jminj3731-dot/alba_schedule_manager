@@ -27,6 +27,7 @@ import {
   UserCog,
   ChevronDown,
   ChevronUp,
+  Bell,
 } from "lucide-react";
 
 type ActionType =
@@ -38,7 +39,8 @@ type ActionType =
   | "worker_updated"
   | "worker_deleted"
   | "attendance_correction"
-  | "correction_skipped";
+  | "correction_skipped"
+  | "email_notification";
 
 const ACTION_LABELS: Record<ActionType, { label: string; color: string; icon: React.ReactNode }> = {
   end_time_update: {
@@ -85,6 +87,11 @@ const ACTION_LABELS: Record<ActionType, { label: string; color: string; icon: Re
     label: "수정 팝업 건너뜀",
     color: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
     icon: <ChevronDown className="w-3.5 h-3.5" />,
+  },
+  email_notification: {
+    label: "이메일/알림 발송",
+    color: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30",
+    icon: <Bell className="w-3.5 h-3.5" />,
   },
 };
 

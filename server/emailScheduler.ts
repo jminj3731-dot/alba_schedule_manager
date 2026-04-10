@@ -5,7 +5,7 @@
  *   2) 출근 시간 정각 (0~2분 전): "지금 출근 버튼을 눌러주세요!" 알림 (단 한 번)
  *   3) 퇴근 10분 전 (8~10분 전): "퇴근 버튼을 눌러주세요!" 알림
  */
-import { getSchedulesByDateRange, getAllWorkers, getDb, resetDbConnection, getAppSetting, setAppSetting, getStatsByDateRange } from "./db";
+import { getSchedulesByDateRange, getAllWorkers, getDb, resetDbConnection, getAppSetting, setAppSetting, getStatsByDateRange, createActivityLog } from "./db";
 import { sendShiftReminderEmail, sendCheckInNowEmail, sendCheckOutNowEmail, sendPaydayEveEmail } from "./email";
 import { sendPushToWorker } from "./push";
 
@@ -182,7 +182,10 @@ export async function checkAndSendShiftReminders(): Promise<void> {
               startTime,
               endTime,
             });
-            if (result.success) console.log(`[EmailScheduler] ✅ 1h email sent to ${worker.name}`);
+            if (result.success) {
+              console.log(`[EmailScheduler] ✅ 1h email sent to ${worker.name}`);
+              await createActivityLog({ workerId: worker.id, workerName: worker.name, actionType: "email_notification", description: `출근 1시간 전 이메일 발송 (${slot.toUpperCase()}타임 ${startTime})` }).catch(() => {});
+            }
           }
           // 푸시
           await sendPushToWorker(worker.name, `${worker.name}님, 1시간 후 출근이에요!`, `${slot.toUpperCase()}타임 ${startTime} 출근 예정입니다.`);
@@ -203,7 +206,10 @@ export async function checkAndSendShiftReminders(): Promise<void> {
               startTime,
               endTime,
             });
-            if (result.success) console.log(`[EmailScheduler] ✅ Check-in now email sent to ${worker.name}`);
+            if (result.success) {
+              console.log(`[EmailScheduler] ✅ Check-in now email sent to ${worker.name}`);
+              await createActivityLog({ workerId: worker.id, workerName: worker.name, actionType: "email_notification", description: `출근 시간 알림 이메일 발송 (${slot.toUpperCase()}타임 ${startTime})` }).catch(() => {});
+            }
           }
           // 푸시
           await sendPushToWorker(worker.name, `${worker.name}님, 지금 출근 버튼을 눌러주세요!`, `${slot.toUpperCase()}타임 ${startTime} 출근 시간입니다.`);
@@ -228,7 +234,10 @@ export async function checkAndSendShiftReminders(): Promise<void> {
               startTime,
               endTime,
             });
-            if (result.success) console.log(`[EmailScheduler] ✅ Check-out email sent to ${worker.name}`);
+            if (result.success) {
+              console.log(`[EmailScheduler] ✅ Check-out email sent to ${worker.name}`);
+              await createActivityLog({ workerId: worker.id, workerName: worker.name, actionType: "email_notification", description: `퇴근 10분 전 알림 이메일 발송 (${slot.toUpperCase()}타임 ${endTime})` }).catch(() => {});
+            }
           }
           await sendPushToWorker(worker.name, `${worker.name}님, 10분 후 퇴근이에요!`, `${slot.toUpperCase()}타임 ${endTime} 퇴근 예정입니다.`);
           await markSent(keyCheckout, today);
@@ -330,8 +339,20 @@ export async function checkAndSendPaydayEveEmails(): Promise<void> {
       if (result.success) {
         await markSent(keyPayday, today);
         console.log(`[EmailScheduler] ✅ Payday eve email sent to ${worker.name}`);
+        await createActivityLog({
+          workerId: worker.id,
+          workerName: worker.name,
+          actionType: "email_notification",
+          description: `급여일 전날 이메일 발송 (${worker.payDay}일 급여일 / 예상 ${totalPay.toLocaleString()}원)`,
+        }).catch(() => {});
       } else {
         console.error(`[EmailScheduler] ❌ Payday eve email failed for ${worker.name}: ${result.error}`);
+        await createActivityLog({
+          workerId: worker.id,
+          workerName: worker.name,
+          actionType: "email_notification",
+          description: `급여일 전날 이메일 발송 실패: ${result.error ?? "알 수 없는 오류"}`,
+        }).catch(() => {});
       }
 
       // Push 알림 발송 (이메일 성공 여부와 무관하게)
@@ -342,6 +363,12 @@ export async function checkAndSendPaydayEveEmails(): Promise<void> {
           `이번 달 예상 급여: ${totalPay.toLocaleString()}원 (${totalHours}h × ${hourlyWage.toLocaleString()}원)`
         );
         console.log(`[EmailScheduler] ✅ Payday eve push sent to ${worker.name}`);
+        await createActivityLog({
+          workerId: worker.id,
+          workerName: worker.name,
+          actionType: "email_notification",
+          description: `급여일 전날 푸시 알림 발송 (${worker.payDay}일 급여일)`,
+        }).catch(() => {});
       } catch (pushErr: any) {
         console.error(`[EmailScheduler] ❌ Payday eve push failed for ${worker.name}: ${pushErr.message}`);
       }

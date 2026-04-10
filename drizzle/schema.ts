@@ -150,6 +150,7 @@ export const activityLogs = mysqlTable("activityLogs", {
     "worker_deleted",         // 알바생 삭제
     "attendance_correction",  // 출퇴근 시간 수정
     "correction_skipped",     // 수정 팝업 건너뜀
+    "email_notification",     // 이메일/푸시 알림 발송
   ]).notNull(),
   /** 활동 설명 (사람이 읽을 수 있는 텍스트) */
   description: text("description").notNull(),
