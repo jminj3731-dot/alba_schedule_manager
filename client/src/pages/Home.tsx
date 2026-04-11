@@ -28,6 +28,7 @@ import {
   CalendarCheck,
   Users,
   Pencil,
+  BookOpen,
   CheckCircle,
   Bell,
   BellOff,
@@ -618,15 +619,26 @@ export default function Home() {
                         <span className="text-xs text-muted-foreground">· 이번 주 {mySchedules.length}일</span>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1 text-xs h-7 px-2.5 border-white/30 text-white hover:bg-white/10"
-                      onClick={() => setPrefDialogOpen(true)}
-                    >
-                      <CalendarCheck className="w-3 h-3" />
-                      선호 근무일 지정
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 border-white/30 text-white hover:bg-white/10"
+                        onClick={() => setPrefDialogOpen(true)}
+                        title="선호 근무일 지정"
+                      >
+                        <CalendarCheck className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 border-white/30 text-white hover:bg-white/10"
+                        onClick={() => window.open("https://tattered-sulfur-16b.notion.site/332ca0ddb8cf81f29814f2f5e2e3975a", "_blank")}
+                        title="매뉴얼"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* 구분선 */}
@@ -899,15 +911,15 @@ export default function Home() {
                       );
 
                       return (
-                        <div key={d.dateStr} className={`flex items-center gap-2 py-2.5 ${today ? "text-foreground" : "text-foreground/80"}`}>
-                          <span className={`shrink-0 w-10 ${today ? "text-primary" : "text-muted-foreground"}`}>
-                            <span className="text-sm font-semibold">{d.dayName}</span>
-                            <span className="text-xs font-medium"> {d.date.getDate()}일</span>
-                          </span>
-                          <Badge className="bg-primary/20 text-primary border-primary/30 text-xs px-2 py-0.5 shrink-0">
+                        <div key={d.dateStr} className={`flex items-center gap-1.5 py-3.5 ${today ? "text-foreground" : "text-foreground/80"}`}>
+                          <div className={`shrink-0 w-9 flex flex-col items-center leading-tight ${today ? "text-primary" : "text-muted-foreground"}`}>
+                            <span className="text-xs font-medium">{d.dayName}</span>
+                            <span className="text-base font-bold">{d.date.getDate()}</span>
+                          </div>
+                          <Badge className="bg-primary/20 text-primary border-primary/30 text-[11px] px-2 py-0 h-5 shrink-0">
                             {mySlot.label}
                           </Badge>
-                          <span className="text-xs font-bold text-foreground/80 shrink-0">{mySlot.time}</span>
+                          <span className="text-base font-bold text-foreground/80 shrink-0">{mySlot.time}</span>
                           <div className="flex-1 flex items-center justify-end gap-1 min-w-0">
                             {checkedInTime && checkedOutTime ? (
                               <>
