@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Wand2, Clock, Plus, X, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Wand2, Clock, Plus, X, Copy, Bell } from "lucide-react";
 import { toast } from "sonner";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
@@ -172,6 +172,15 @@ export default function Master() {
     },
   });
 
+  const scheduleReadyMutation = trpc.notification.scheduleReady.useMutation({
+    onSuccess: (result) => {
+      toast.success(`${result.weekLabel} 스케줄 알림 발송 완료! (푸시 ${result.pushCount}건, 이메일 ${result.emailCount}건)`);
+    },
+    onError: () => {
+      toast.error("알림 발송 중 오류가 발생했습니다.");
+    },
+  });
+
   const copyPrevWeekMutation = trpc.schedules.copyFromPrevWeek.useMutation({
     onSuccess: (result) => {
       utils.schedules.getByDateRange.invalidate({ startDate, endDate });
@@ -279,6 +288,16 @@ export default function Master() {
             >
               <Copy className="w-3.5 h-3.5" />
               {copyPrevWeekMutation.isPending ? "복사 중..." : "전주 복사"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 bg-transparent"
+              disabled={scheduleReadyMutation.isPending}
+              onClick={() => scheduleReadyMutation.mutate({ startDate, endDate })}
+            >
+              <Bell className="w-3.5 h-3.5" />
+              {scheduleReadyMutation.isPending ? "발송 중..." : "스케줄 알림"}
             </Button>
             <Button
               size="sm"

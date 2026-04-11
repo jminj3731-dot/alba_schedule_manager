@@ -4,7 +4,7 @@ import { notifyOwner } from "./_core/notification";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { sendShiftReminderEmail, sendCheckOutNotifyToAdmin, sendAttendanceCorrectionToAdmin, sendTestEmail } from "./email";
+import { sendShiftReminderEmail, sendCheckOutNotifyToAdmin, sendAttendanceCorrectionToAdmin, sendTestEmail, sendScheduleReadyEmail } from "./email";
 import { savePushSubscription, deletePushSubscription, sendPushToAll, sendPushToWorker, getSubscriptionsByWorkerName, VAPID_PUBLIC_KEY } from "./push";
 import { checkAndSendShiftReminders } from "./emailScheduler";
 import { exportToGoogleSheets, testGoogleSheetsConnection } from "./googleSheets";
@@ -727,6 +727,67 @@ export const appRouter = router({
           email: { success: emailResult.success, message: emailResult.success ? `${TEST_EMAIL}로 이메일 발송 완료` : `이메일 발송 실패: ${emailResult.error}` },
         };
       }),
+
+    scheduleReady: publicProcedure
+      .input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .mutation(async ({ input }) => {
+        // 주차 레이블 계산 (이번 주 / 다음 주 / M/D~M/D)
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const dayOfWeek = now.getDay();
+        const thisWeekStart = new Date(now);
+        thisWeekStart.setDate(now.getDate() - dayOfWeek);
+        thisWeekStart.setHours(0, 0, 0, 0);
+        const nextWeekStart = new Date(thisWeekStart);
+        nextWeekStart.setDate(thisWeekStart.getDate() + 7);
+        const nextWeekEnd = new Date(nextWeekStart);
+        nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+
+        const toMMDD = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+        const startD = new Date(input.startDate + "T00:00:00");
+        const endD = new Date(input.endDate + "T00:00:00");
+        const startMMDD = toMMDD(startD);
+        const endMMDD = toMMDD(endD);
+
+        let weekLabel: string;
+        if (input.startDate === toLocalDateStr(thisWeekStart)) {
+          weekLabel = `이번 주(${startMMDD}~${endMMDD})`;
+        } else if (input.startDate === toLocalDateStr(nextWeekStart)) {
+          weekLabel = `다음 주(${startMMDD}~${endMMDD})`;
+        } else {
+          weekLabel = `${startMMDD}~${endMMDD}`;
+        }
+
+        const allWorkers = await getAllWorkers();
+        let pushCount = 0;
+        let emailCount = 0;
+        let failCount = 0;
+
+        for (const worker of allWorkers) {
+          try {
+            const subs = await getSubscriptionsByWorkerName(worker.name);
+            if (subs.length > 0) {
+              await sendPushToWorker(
+                worker.name,
+                `📅 ${weekLabel} 스케줄이 등록됐어요!`,
+                "스케줄을 확인해주세요."
+              );
+              pushCount++;
+            } else if (worker.email) {
+              await sendScheduleReadyEmail({ to: worker.email, workerName: worker.name, weekLabel });
+              emailCount++;
+            }
+          } catch {
+            failCount++;
+          }
+        }
+
+        return { success: true, pushCount, emailCount, failCount, weekLabel };
+      }),
   }),
 });
+
+function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 export type AppRouter = typeof appRouter;

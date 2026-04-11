@@ -785,3 +785,59 @@ export async function sendTestEmail({
     return { success: false, error: String(error) };
   }
 }
+
+/**
+ * 스케줄 등록 알림 이메일 발송
+ */
+export async function sendScheduleReadyEmail({
+  to,
+  workerName,
+  weekLabel,
+}: {
+  to: string;
+  workerName: string;
+  weekLabel: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const subject = `[대한한우숯불구이] ${weekLabel} 스케줄 등록 안내`;
+  const html = `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background-color:#ffffff;">
+    <div style="background-color:#CC0000;padding:24px 20px;text-align:center;">
+      <h1 style="color:#ffffff;margin:0;font-size:20px;font-weight:bold;">대한한우숯불구이</h1>
+      <p style="color:#ffcccc;margin:6px 0 0;font-size:13px;">경기도 동두천시 어수로 113-1</p>
+    </div>
+    <div style="padding:28px 20px;">
+      <p style="font-size:16px;color:#333;margin:0 0 16px;">
+        <strong style="color:#CC0000;">${workerName}</strong>님, 안녕하세요! 👋
+      </p>
+      <p style="font-size:15px;color:#555;margin:0 0 20px;line-height:1.6;">
+        <strong>${weekLabel}</strong> 스케줄이 등록됐어요.<br>
+        앱에서 내 스케줄을 확인해주세요!
+      </p>
+      <div style="background-color:#fff8f8;border:2px solid #CC0000;border-radius:12px;padding:20px;margin-bottom:20px;text-align:center;">
+        <p style="margin:0 0 4px;font-size:18px;">📅</p>
+        <p style="margin:0;font-size:15px;color:#CC0000;font-weight:bold;">${weekLabel} 스케줄 확인하기</p>
+        <p style="margin:8px 0 0;font-size:13px;color:#888;">albaschedulemanager-production.up.railway.app</p>
+      </div>
+    </div>
+    <div style="background-color:#f9f9f9;padding:16px 20px;text-align:center;border-top:1px solid #eee;">
+      <p style="margin:0;font-size:12px;color:#aaa;">대한한우숯불구이 스케줄 관리 시스템</p>
+    </div>
+  </div>
+</body>
+</html>`.trim();
+
+  try {
+    const result = await sendBrevoEmail({ to, subject, html });
+    return { success: true, id: result.messageId } as any;
+  } catch (error) {
+    console.error("[Email] Failed to send schedule ready email:", error);
+    return { success: false, error: String(error) };
+  }
+}
