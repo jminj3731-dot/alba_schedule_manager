@@ -13,6 +13,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import {
   CalendarDays,
   List,
   ChevronLeft,
@@ -29,6 +35,7 @@ import {
   Users,
   Pencil,
   BookOpen,
+  Calculator,
   CheckCircle,
   Bell,
   BellOff,
@@ -158,6 +165,10 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<"card" | "calendar">("card");
   const [prefDialogOpen, setPrefDialogOpen] = useState(false);
   const [prefDays, setPrefDays] = useState<string[]>([]);
+  const [salaryDrawerOpen, setSalaryDrawerOpen] = useState(false);
+  const [salaryMonthOffset, setSalaryMonthOffset] = useState(0);
+  const [editingPayDay, setEditingPayDay] = useState(false);
+  const [payDayInput, setPayDayInput] = useState("");
   const [, navigate] = useLocation();
   // GPS 위치 상태
   const [locationChecking, setLocationChecking] = useState(false);
@@ -201,6 +212,23 @@ export default function Home() {
 
   const { data: workers = [] } = trpc.workers.list.useQuery();
 
+  const salaryMonthRange = useMemo(() => {
+    const currentWorker = workers.find((w) => w.name === loggedInName);
+    const payDay = currentWorker?.payDay ?? 14;
+    const now = new Date();
+    const baseYear = now.getFullYear();
+    const baseMonth = now.getMonth() + salaryMonthOffset;
+    // 급여 기간: 전월 payDay일 ~ 당월 (payDay-1)일
+    const startDate = new Date(baseYear, baseMonth - 1, payDay);
+    const endDate = new Date(baseYear, baseMonth, payDay - 1);
+    return {
+      start: toLocalDateStr(startDate),
+      end: toLocalDateStr(endDate),
+      label: `${endDate.getFullYear()}년 ${endDate.getMonth() + 1}월 급여 (${startDate.getMonth() + 1}/${startDate.getDate()}~${endDate.getMonth() + 1}/${endDate.getDate()})`,
+      payDay,
+    };
+  }, [salaryMonthOffset, workers, loggedInName]);
+
   // 자동 로그인: workers 로드 후 localStorage에 저장된 이름으로 prefDays 세팅
   useEffect(() => {
     if (loggedInName && workers.length > 0 && prefDays.length === 0) {
@@ -214,6 +242,10 @@ export default function Home() {
   const { data: monthSchedules = [] } = trpc.schedules.getByDateRange.useQuery(
     { startDate: monthRange.start, endDate: monthRange.end },
     { enabled: viewMode === "calendar" }
+  );
+  const { data: salarySchedules = [] } = trpc.schedules.getByDateRange.useQuery(
+    { startDate: salaryMonthRange.start, endDate: salaryMonthRange.end },
+    { enabled: salaryDrawerOpen }
   );
   const utils = trpc.useUtils();
 
@@ -318,6 +350,15 @@ export default function Home() {
       }
       setPrefDialogOpen(false);
     },
+  });
+
+  const updatePayDayMutation = trpc.workers.update.useMutation({
+    onSuccess: () => {
+      utils.workers.list.invalidate();
+      toast.success("급여일이 저장되었습니다.");
+      setEditingPayDay(false);
+    },
+    onError: () => toast.error("급여일 저장에 실패했습니다."),
   });
 
   const correctTimeMutation = trpc.attendanceCorrections.create.useMutation({
@@ -628,6 +669,15 @@ export default function Home() {
                         title="선호 근무일 지정"
                       >
                         <CalendarCheck className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 border-white/30 text-white hover:bg-white/10"
+                        onClick={() => setSalaryDrawerOpen(true)}
+                        title="월급 계산기"
+                      >
+                        <Calculator className="w-3.5 h-3.5" />
                       </Button>
                       <Button
                         variant="outline"
@@ -1181,6 +1231,153 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
+
+      {/* 월급 계산기 드로어 */}
+      <Drawer open={salaryDrawerOpen} onOpenChange={setSalaryDrawerOpen}>
+        <DrawerContent className="bg-card border-border max-h-[80vh]">
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="flex items-center gap-2 text-base">
+              <Calculator className="w-4 h-4 text-primary" />
+              월급 계산기
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 overflow-y-auto">
+            {(() => {
+              const currentWorker = workers.find((w) => w.name === loggedInName);
+              const hourlyWage = currentWorker?.hourlyWage ?? null;
+
+              // 시간 문자열 → 분 변환
+              function toMins(t: string | null | undefined): number {
+                if (!t) return 0;
+                const [h, m] = t.split(":").map(Number);
+                return (h || 0) * 60 + (m || 0);
+              }
+
+              // 근무 내역 계산 (마스터 등록 예정 시간 기준)
+              const DEFAULT_START: Record<string, string> = { a: "17:30", b: "18:00", c: "18:00", d: "18:00" };
+              const DEFAULT_END = "22:00";
+              const workDays = salarySchedules
+                .filter((s) => s.isOperating)
+                .map((s) => {
+                  const mySlot = getMyTimeSlot(s as any);
+                  if (!mySlot) return null;
+                  const schedStart = (s as any)[`${mySlot.slot}TimeStartTime`] || DEFAULT_START[mySlot.slot];
+                  const schedEnd = (s as any)[`${mySlot.slot}TimeEndTime`] || DEFAULT_END;
+                  const mins = toMins(schedEnd) - toMins(schedStart);
+                  if (mins <= 0) return null;
+                  return { date: s.scheduleDate, dayOfWeek: s.dayOfWeek, start: schedStart, end: schedEnd, mins };
+                })
+                .filter(Boolean) as { date: string; dayOfWeek: string; start: string; end: string; mins: number }[];
+
+              const totalMins = workDays.reduce((sum, d) => sum + d.mins, 0);
+              const totalHours = Math.floor(totalMins / 60);
+              const remainMins = totalMins % 60;
+              const estimatedPay = hourlyWage ? Math.floor((totalMins / 60) * hourlyWage) : null;
+
+              return (
+                <>
+                  {/* 급여일 설정 */}
+                  <div className="flex items-center justify-between mb-3 px-1 max-w-sm mx-auto">
+                    <span className="text-xs text-muted-foreground">
+                      급여일: <span className="text-foreground font-medium">매월 {salaryMonthRange.payDay}일</span>
+                    </span>
+                    {editingPayDay ? (
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={payDayInput}
+                          onChange={(e) => setPayDayInput(e.target.value)}
+                          className="h-6 w-14 text-xs px-2 bg-secondary/50"
+                        />
+                        <button
+                          className="text-xs text-primary font-medium"
+                          onClick={() => {
+                            const d = parseInt(payDayInput);
+                            if (d >= 1 && d <= 31 && currentWorker) {
+                              updatePayDayMutation.mutate({ id: currentWorker.id, payDay: d });
+                            }
+                          }}
+                        >저장</button>
+                        <button className="text-xs text-muted-foreground" onClick={() => setEditingPayDay(false)}>취소</button>
+                      </div>
+                    ) : (
+                      <button
+                        className="text-xs text-primary"
+                        onClick={() => { setPayDayInput(String(salaryMonthRange.payDay)); setEditingPayDay(true); }}
+                      >
+                        수정
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 월 네비게이션 */}
+                  <div className="flex items-center justify-between mb-4 max-w-sm mx-auto">
+                    <button onClick={() => setSalaryMonthOffset((p) => p - 1)} className="p-1.5 rounded hover:bg-secondary">
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-sm font-semibold">{salaryMonthRange.label}</span>
+                    <button onClick={() => setSalaryMonthOffset((p) => p + 1)} className="p-1.5 rounded hover:bg-secondary">
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* 합계 카드 */}
+                  <div className="grid grid-cols-3 gap-2 mb-4 max-w-sm mx-auto">
+                    <div className="flex flex-col items-center py-3 rounded-xl bg-secondary/40">
+                      <span className="text-[10px] text-muted-foreground mb-1">근무일수</span>
+                      <span className="text-lg font-bold text-foreground">{workDays.length}일</span>
+                    </div>
+                    <div className="flex flex-col items-center py-3 rounded-xl bg-secondary/40">
+                      <span className="text-[10px] text-muted-foreground mb-1">총 근무시간</span>
+                      <span className="text-lg font-bold text-foreground">{totalHours}h {remainMins > 0 ? `${remainMins}m` : ""}</span>
+                    </div>
+                    <div className="flex flex-col items-center py-3 rounded-xl bg-primary/10 border border-primary/20">
+                      <span className="text-[10px] text-muted-foreground mb-1">예상 급여</span>
+                      {estimatedPay !== null ? (
+                        <span className="text-lg font-bold text-primary">{estimatedPay.toLocaleString()}원</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">시급 미설정</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 날짜별 내역 */}
+                  {workDays.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground py-6">근무 내역이 없습니다</p>
+                  ) : (
+                    <div className="space-y-1.5 max-w-sm mx-auto">
+                      {workDays.map((d) => {
+                        const hours = Math.floor(d.mins / 60);
+                        const mins = d.mins % 60;
+                        const pay = hourlyWage ? Math.floor((d.mins / 60) * hourlyWage) : null;
+                        const dateObj = new Date(d.date + "T00:00:00");
+                        return (
+                          <div key={d.date} className="grid grid-cols-[5rem_7rem_3rem_5rem] items-center gap-2 px-3 py-2 rounded-lg bg-secondary/30">
+                            <span className="text-xs text-muted-foreground">
+                              {dateObj.getMonth() + 1}/{dateObj.getDate()} ({d.dayOfWeek})
+                            </span>
+                            <span className="text-xs text-foreground/70">{d.start}~{d.end}</span>
+                            <span className="text-xs text-muted-foreground text-right">{hours}h{mins > 0 ? ` ${mins}m` : ""}</span>
+                            <span className="text-xs font-medium text-primary text-right">
+                              {pay !== null ? `${pay.toLocaleString()}원` : "-"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {!hourlyWage && (
+                    <p className="text-center text-xs text-muted-foreground mt-3">시급은 관리자에게 문의하세요</p>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Preferred days dialog */}
       <Dialog open={prefDialogOpen} onOpenChange={setPrefDialogOpen}>
