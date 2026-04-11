@@ -76,11 +76,13 @@ export const appRouter = router({
         skillLevel: z.enum(["main", "sub", "trainee"]),
         fixedDaysOff: z.string().default(""),
         preferredDays: z.string().default(""),
-        payDay: z.number().min(1).max(31).default(14),
+        payDay: z.number().min(1).max(31).optional().nullable(),
         email: z.string().email().optional().nullable(),
         hourlyWage: z.number().int().min(0).optional().nullable(),
         defaultStartTime: z.string().optional().nullable(),
         defaultEndTime: z.string().optional().nullable(),
+        targetDaysMin: z.number().int().min(1).max(7).optional().nullable(),
+        targetDaysMax: z.number().int().min(1).max(7).optional().nullable(),
       }))
       .mutation(async ({ input }) => {
         return createWorker(input);
@@ -98,6 +100,8 @@ export const appRouter = router({
         hourlyWage: z.number().int().min(0).optional().nullable(),
         defaultStartTime: z.string().optional().nullable(),
         defaultEndTime: z.string().optional().nullable(),
+        targetDaysMin: z.number().int().min(1).max(7).optional().nullable(),
+        targetDaysMax: z.number().int().min(1).max(7).optional().nullable(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;

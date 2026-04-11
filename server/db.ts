@@ -77,6 +77,9 @@ async function ensureTables(pool: any) {
         CONSTRAINT \`announcements_id\` PRIMARY KEY(\`id\`)
       )
     `);
+    // workers 테이블에 목표 근무일수 컬럼 추가 (없으면)
+    await pool.execute(`ALTER TABLE \`workers\` ADD COLUMN \`targetDaysMin\` int DEFAULT 3`).catch(() => {});
+    await pool.execute(`ALTER TABLE \`workers\` ADD COLUMN \`targetDaysMax\` int DEFAULT 4`).catch(() => {});
   } catch (err: any) {
     console.warn('[Database] ensureTables warning:', err.message);
   }
@@ -186,7 +189,7 @@ export async function getWorkerById(id: number) {
   return result[0];
 }
 
-export async function createWorker(data: { name: string; skillLevel: "main" | "sub" | "trainee"; fixedDaysOff: string; preferredDays?: string; payDay?: number; email?: string | null; hourlyWage?: number | null; defaultStartTime?: string | null; defaultEndTime?: string | null }) {
+export async function createWorker(data: { name: string; skillLevel: "main" | "sub" | "trainee"; fixedDaysOff: string; preferredDays?: string; payDay?: number | null; email?: string | null; hourlyWage?: number | null; defaultStartTime?: string | null; defaultEndTime?: string | null; targetDaysMin?: number | null; targetDaysMax?: number | null }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(workers).values({
@@ -194,16 +197,18 @@ export async function createWorker(data: { name: string; skillLevel: "main" | "s
     skillLevel: data.skillLevel,
     fixedDaysOff: data.fixedDaysOff || "",
     preferredDays: data.preferredDays || "",
-    payDay: data.payDay ?? 14,
+    payDay: data.payDay ?? null,
     email: data.email ?? null,
     hourlyWage: data.hourlyWage ?? null,
     defaultStartTime: data.defaultStartTime ?? null,
     defaultEndTime: data.defaultEndTime ?? null,
+    targetDaysMin: data.targetDaysMin ?? 3,
+    targetDaysMax: data.targetDaysMax ?? 4,
   } as any);
   return { id: result[0].insertId };
 }
 
-export async function updateWorker(id: number, data: { name?: string; skillLevel?: "main" | "sub" | "trainee"; fixedDaysOff?: string; preferredDays?: string; payDay?: number; email?: string | null; hourlyWage?: number | null; defaultStartTime?: string | null; defaultEndTime?: string | null }) {
+export async function updateWorker(id: number, data: { name?: string; skillLevel?: "main" | "sub" | "trainee"; fixedDaysOff?: string; preferredDays?: string; payDay?: number; email?: string | null; hourlyWage?: number | null; defaultStartTime?: string | null; defaultEndTime?: string | null; targetDaysMin?: number | null; targetDaysMax?: number | null }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const updateSet: Record<string, unknown> = {};
@@ -216,6 +221,8 @@ export async function updateWorker(id: number, data: { name?: string; skillLevel
   if (data.hourlyWage !== undefined) updateSet.hourlyWage = data.hourlyWage;
   if (data.defaultStartTime !== undefined) updateSet.defaultStartTime = data.defaultStartTime;
   if (data.defaultEndTime !== undefined) updateSet.defaultEndTime = data.defaultEndTime;
+  if (data.targetDaysMin !== undefined) updateSet.targetDaysMin = data.targetDaysMin;
+  if (data.targetDaysMax !== undefined) updateSet.targetDaysMax = data.targetDaysMax;
   if (Object.keys(updateSet).length === 0) return;
   await db.update(workers).set(updateSet as any).where(eq(workers.id, id));
 }

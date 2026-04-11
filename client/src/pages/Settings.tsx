@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Bell, Save, Megaphone, X, FlaskConical } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BarChart3, CalendarCheck, Bell, Save, Megaphone, X, FlaskConical, ChevronLeft, ChevronRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -35,22 +35,17 @@ function toLocalDateStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function getWeekRange(): { startDate: string; endDate: string } {
+function getWeekRange(offset = 0): { startDate: string; endDate: string } {
   const now = new Date();
   const dayOfWeek = now.getDay(); // 0=일, 1=월, ..., 6=토
   const start = new Date(now);
-  start.setDate(now.getDate() - dayOfWeek); // 이번 주 일요일
+  start.setDate(now.getDate() - dayOfWeek + offset * 7); // offset 주차 일요일
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
-  end.setDate(start.getDate() + 6); // 이번 주 토요일
+  end.setDate(start.getDate() + 6); // 토요일
   return { startDate: toLocalDateStr(start), endDate: toLocalDateStr(end) };
 }
 
-function getWorkStatus(count: number) {
-  if (count <= 3) return { label: "부족", color: "bg-yellow-600/20 text-yellow-400 border-yellow-600/30" };
-  if (count === 4) return { label: "적정", color: "bg-green-600/20 text-green-400 border-green-600/30" };
-  return { label: "초과", color: "bg-red-600/20 text-red-400 border-red-600/30" };
-}
 
 export default function Settings() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -59,20 +54,25 @@ export default function Settings() {
   const [formSkillLevel, setFormSkillLevel] = useState<"main" | "sub" | "trainee">("sub");
   const [formDaysOff, setFormDaysOff] = useState<string[]>([]);
   const [formPreferredDays, setFormPreferredDays] = useState<string[]>([]);
-  const [formPayDay, setFormPayDay] = useState<number>(14);
+  const [formPayDay, setFormPayDay] = useState<number | null>(null);
   const [formEmail, setFormEmail] = useState<string>("");
   const [formDefaultStartTime, setFormDefaultStartTime] = useState<string>("");
   const [formDefaultEndTime, setFormDefaultEndTime] = useState<string>("");
   const [formHourlyWage, setFormHourlyWage] = useState<string>("");
+  const [formTargetDaysMin, setFormTargetDaysMin] = useState<number>(3);
+  const [formTargetDaysMax, setFormTargetDaysMax] = useState<number>(4);
 
   const [announcementDialogOpen, setAnnouncementDialogOpen] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementContent, setAnnouncementContent] = useState("");
 
+  const [weekOffset, setWeekOffset] = useState(0);
   const utils = trpc.useUtils();
   const { data: workers = [], isLoading } = trpc.workers.list.useQuery();
-  const weekRange = useMemo(() => getWeekRange(), []);
+  const weekRange = useMemo(() => getWeekRange(weekOffset), [weekOffset]);
+  const prevWeekRange = useMemo(() => getWeekRange(weekOffset - 1), [weekOffset]);
   const { data: weekCounts = {} } = trpc.schedules.weeklyWorkerCounts.useQuery(weekRange);
+  const { data: prevWeekCounts = {} } = trpc.schedules.weeklyWorkerCounts.useQuery(prevWeekRange);
   const { data: allAnnouncements = [] } = trpc.announcements.getAll.useQuery();
   const createActivityLogMutation = trpc.activityLogs.create.useMutation();
 
@@ -169,11 +169,13 @@ export default function Settings() {
     setFormSkillLevel("sub");
     setFormDaysOff([]);
     setFormPreferredDays([]);
-    setFormPayDay(14);
+    setFormPayDay(null);
     setFormEmail("");
     setFormDefaultStartTime("");
     setFormDefaultEndTime("");
     setFormHourlyWage("");
+    setFormTargetDaysMin(3);
+    setFormTargetDaysMax(4);
     setEditingWorker(null);
     setDialogOpen(false);
   }
@@ -184,11 +186,13 @@ export default function Settings() {
     setFormSkillLevel(worker.skillLevel);
     setFormDaysOff(worker.fixedDaysOff ? worker.fixedDaysOff.split(",").filter(Boolean) : []);
     setFormPreferredDays(worker.preferredDays ? worker.preferredDays.split(",").filter(Boolean) : []);
-    setFormPayDay(worker.payDay ?? 14);
+    setFormPayDay(worker.payDay ?? null);
     setFormEmail(worker.email ?? "");
     setFormDefaultStartTime(worker.defaultStartTime ?? "");
     setFormDefaultEndTime(worker.defaultEndTime ?? "");
     setFormHourlyWage(worker.hourlyWage ? String(worker.hourlyWage) : "");
+    setFormTargetDaysMin(worker.targetDaysMin ?? 3);
+    setFormTargetDaysMax(worker.targetDaysMax ?? 4);
     setDialogOpen(true);
   }
 
@@ -215,11 +219,13 @@ export default function Settings() {
         skillLevel: formSkillLevel,
         fixedDaysOff: daysOffStr,
         preferredDays: preferredStr,
-        payDay: formPayDay,
+        payDay: formPayDay ?? undefined,
         email: emailVal,
         hourlyWage: hourlyWageVal,
         defaultStartTime: defaultStartVal,
         defaultEndTime: defaultEndVal,
+        targetDaysMin: formTargetDaysMin,
+        targetDaysMax: formTargetDaysMax,
       });
     } else {
       createMutation.mutate({
@@ -227,11 +233,13 @@ export default function Settings() {
         skillLevel: formSkillLevel,
         fixedDaysOff: daysOffStr,
         preferredDays: preferredStr,
-        payDay: formPayDay,
+        payDay: formPayDay ?? undefined,
         email: emailVal,
         hourlyWage: hourlyWageVal,
         defaultStartTime: defaultStartVal,
         defaultEndTime: defaultEndVal,
+        targetDaysMin: formTargetDaysMin,
+        targetDaysMax: formTargetDaysMax,
       });
     }
   }
@@ -278,8 +286,8 @@ export default function Settings() {
               disabled={testNotificationMutation.isPending}
               onClick={() => testNotificationMutation.mutate()}
             >
-              <FlaskConical className="w-3.5 h-3.5" />
-              {testNotificationMutation.isPending ? "발송 중..." : "알림테스트"}
+              <Bell className="w-3.5 h-3.5" />
+              {testNotificationMutation.isPending ? "..." : "테스트"}
             </Button>
             <Button onClick={openCreateDialog} size="sm" className="gap-1.5">
               <Plus className="w-4 h-4" />
@@ -294,31 +302,67 @@ export default function Settings() {
             <CardTitle className="text-sm font-medium flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" />
-                이번 주 근무 현황
+                근무 현황
               </span>
-              <span className="text-[11px] font-normal text-muted-foreground">
-                {weekRange.startDate.slice(5).replace("-", "/")} (일) ~ {weekRange.endDate.slice(5).replace("-", "/")} (토)
-              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setWeekOffset((p) => p - 1)}
+                  className="p-1 rounded hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-normal text-muted-foreground tabular-nums">
+                  {weekOffset === 0 ? "이번 주" : weekOffset === -1 ? "지난 주" : weekOffset === 1 ? "다음 주" : `${weekOffset > 0 ? "+" : ""}${weekOffset}주`}
+                  {" "}({weekRange.startDate.slice(5).replace("-", "/")}~{weekRange.endDate.slice(5).replace("-", "/")})
+                </span>
+                <button
+                  onClick={() => setWeekOffset((p) => p + 1)}
+                  className="p-1 rounded hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              {workers.map((w) => {
-                const count = (weekCounts as Record<string, number>)[String(w.id)] || 0;
-                const status = getWorkStatus(count);
-                return (
-                  <div key={w.id} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{w.name}</span>
-                      <span className="text-xs text-muted-foreground">{count}일</span>
-                    </div>
-                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${status.color}`}>
-                      {status.label}
-                    </Badge>
-                  </div>
-                );
-              })}
-            </div>
+          <CardContent className="space-y-1.5">
+            {workers.map((w) => {
+              const count = (weekCounts as Record<string, number>)[String(w.id)] || 0;
+              const prevCount = (prevWeekCounts as Record<string, number>)[String(w.id)] || 0;
+              const targetMin = w.targetDaysMin ?? 3;
+              const targetMax = w.targetDaysMax ?? 4;
+              const status = count < targetMin
+                ? { label: "부족", color: "bg-yellow-600/20 text-yellow-400 border-yellow-600/30" }
+                : count > targetMax
+                ? { label: "초과", color: "bg-red-600/20 text-red-400 border-red-600/30" }
+                : { label: "적정", color: "bg-green-600/20 text-green-400 border-green-600/30" };
+              const targetLabel = targetMin === targetMax ? `${targetMin}일 고정` : `${targetMin}~${targetMax}일`;
+              const diff = count - prevCount;
+              const diffLabel = diff > 0 ? `+${diff}` : diff < 0 ? `${diff}` : "±0";
+              const diffColor = diff > 0 ? "text-blue-400" : diff < 0 ? "text-yellow-400" : "text-muted-foreground/50";
+
+              return (
+                <div key={w.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-secondary/30">
+                  {/* 이름 */}
+                  <span className="text-sm font-medium w-14 shrink-0">{w.name}</span>
+
+                  {/* 전주 + diff */}
+                  <span className="text-[10px] text-muted-foreground/40 flex-1">
+                    전주 {prevCount}일 <span className={`font-medium ${diffColor}`}>({diffLabel})</span>
+                  </span>
+
+                  {/* 목표 */}
+                  <span className="text-[10px] text-muted-foreground/40 shrink-0">{targetLabel}</span>
+
+                  {/* 이번 주 일수 */}
+                  <span className="text-sm font-bold tabular-nums shrink-0 w-6 text-right">{count}일</span>
+
+                  {/* 상태 뱃지 */}
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 shrink-0 ${status.color}`}>
+                    {status.label}
+                  </Badge>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 
@@ -472,17 +516,26 @@ export default function Settings() {
                     type="number"
                     min={1}
                     max={31}
-                    value={formPayDay}
+                    value={formPayDay ?? ""}
                     onChange={(e) => {
                       const v = parseInt(e.target.value);
-                      if (!isNaN(v) && v >= 1 && v <= 31) setFormPayDay(v);
+                      setFormPayDay(!e.target.value ? null : (!isNaN(v) && v >= 1 && v <= 31 ? v : formPayDay));
                     }}
                     className="bg-secondary/50 w-24"
-                    placeholder="14"
+                    placeholder="미설정"
                   />
                   <span className="text-sm text-muted-foreground">일</span>
+                  {formPayDay !== null && (
+                    <button
+                      type="button"
+                      onClick={() => setFormPayDay(null)}
+                      className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground underline"
+                    >
+                      초기화
+                    </button>
+                  )}
                 </div>
-                <p className="text-[10px] text-muted-foreground">급여 계산기에서 자동으로 불러옵니다.</p>
+                <p className="text-[10px] text-muted-foreground">급여 계산기에서 자동으로 불러옵니다. 미설정 시 급여 알림이 발송되지 않습니다.</p>
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
@@ -541,6 +594,33 @@ export default function Settings() {
                   />
                 </div>
                 <p className="text-[10px] text-muted-foreground">미입력 시 타임별 기본값 사용 (A: 17:30, B/C: 18:00 ~ 22:00)</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  주간 목표 근무일수
+                  <span className="text-[10px] text-muted-foreground font-normal">(근무 현황 적정 여부 판단 기준)</span>
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={formTargetDaysMin}
+                    onChange={(e) => setFormTargetDaysMin(Number(e.target.value))}
+                    className="bg-secondary/50 w-20 text-center"
+                  />
+                  <span className="text-sm text-muted-foreground shrink-0">일 ~</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={formTargetDaysMax}
+                    onChange={(e) => setFormTargetDaysMax(Number(e.target.value))}
+                    className="bg-secondary/50 w-20 text-center"
+                  />
+                  <span className="text-sm text-muted-foreground shrink-0">일</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">동일하게 설정하면 고정 일수로 표시됩니다. (예: 4~4 → 4일 고정)</p>
               </div>
             </div>
             <DialogFooter>

@@ -911,12 +911,17 @@ export default function Home() {
                             {mySlot.label}타임
                           </Badge>
                           <span className="text-sm text-foreground/60 flex-1">{mySlot.time}</span>
-                          {checkedInTime && (
-                            <span className="text-xs text-green-500 font-medium tabular-nums">{checkedInTime}</span>
-                          )}
-                          {checkedOutTime && (
-                            <span className="text-xs text-muted-foreground/50 tabular-nums">~{checkedOutTime}</span>
-                          )}
+                          {checkedInTime && checkedOutTime ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground/50 tabular-nums">{checkedInTime}~{checkedOutTime}</span>
+                              <Badge className="bg-green-500/15 text-green-500 border-green-500/30 text-[10px] px-1.5 py-0 h-4">기록완료</Badge>
+                            </div>
+                          ) : checkedInTime ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-green-500 tabular-nums">{checkedInTime}</span>
+                              <Badge className="bg-yellow-500/15 text-yellow-500 border-yellow-500/30 text-[10px] px-1.5 py-0 h-4">출근완료</Badge>
+                            </div>
+                          ) : null}
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground/30 hover:text-primary transition-colors">

@@ -321,189 +321,219 @@ export default function Master() {
           </Button>
         </div>
 
-        {/* Schedule rows */}
-        <div className="space-y-2">
-          {weekDates.map((d) => {
-            const row = scheduleMap[d.dateStr];
-            if (!row) return null;
-            const isWeekend = WEEKEND_DAYS.includes(d.dayName);
-            const errors = validateRow(row, workers);
-            const hasErrors = errors.some((e) => e.type === "no_main" || e.type === "day_off");
-
-            return (
-              <Card
-                key={d.dateStr}
-                className={`border-border transition-colors ${
-                  !row.isOperating
-                    ? "opacity-50 bg-muted/30"
-                    : hasErrors
-                    ? "border-destructive/50 bg-destructive/5"
-                    : "bg-card"
-                }`}
-              >
-                <CardContent className="p-3 space-y-2.5">
-                  {/* Date header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-xs font-bold w-6 h-6 rounded-md flex items-center justify-center ${
-                          isWeekend ? "bg-primary/20 text-primary" : "bg-secondary text-secondary-foreground"
-                        }`}
-                      >
-                        {d.dayName}
+        {/* Schedule Table */}
+        <Card className="border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              {/* 슬롯 헤더 */}
+              <thead>
+                <tr className="border-b border-border/30">
+                  <th className="w-24 p-2 text-left text-muted-foreground/50 font-normal"></th>
+                  {(["a", "b", "c", "d"] as const).map((slot) => (
+                    <th key={slot} className="p-1.5 text-center min-w-[44px] max-w-[44px]">
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${
+                        slot === "a" ? "bg-primary/30 text-primary" : "bg-secondary text-secondary-foreground"
+                      }`}>
+                        {slot.toUpperCase()}
                       </span>
-                      <span className="text-sm font-medium">{formatDate(d.dateStr)}</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-border text-muted-foreground">
-                        {isWeekend ? "주말" : "평일"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground">
-                        {row.isOperating ? "운영" : "휴무"}
-                      </span>
-                      <Switch
-                        checked={row.isOperating}
-                        onCheckedChange={(checked) => saveSchedule(d.dateStr, { isOperating: checked })}
-                        className="data-[state=checked]:bg-primary"
-                      />
-                    </div>
-                  </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {/* 날짜별 행 */}
+                {weekDates.map((d) => {
+                  const row = scheduleMap[d.dateStr];
+                  const isWeekend = WEEKEND_DAYS.includes(d.dayName);
+                  const errors = row ? validateRow(row, workers) : [];
+                  const hasErrors = errors.some((e) => e.type === "no_main" || e.type === "day_off");
+                  const isOperating = row?.isOperating ?? true;
 
-                  {/* Time slots */}
-                  {row.isOperating && (
-                    <div className="space-y-2">
-                      <TimeSlotRow
-                        label="A"
-                        timeSlot="a"
-                        startTime={row.aTimeStartTime || DEFAULT_START.a}
-                        endTime={row.aTimeEndTime || DEFAULT_END}
-                        workerId={row.aTimeWorkerId}
-                        workers={workers}
-                        dayOfWeek={d.dayName}
-                        scheduleDate={d.dateStr}
-                        hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
-                        onWorkerChange={(id) => {
-                          const w = workers.find((w) => w.id === id);
-                          saveSchedule(d.dateStr, { aTimeWorkerId: id }, w?.defaultStartTime || w?.defaultEndTime ? { slot: "a", startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
-                        }}
-                        onTimeChange={handleUpdateTime}
-                      />
-                      <TimeSlotRow
-                        label="B"
-                        timeSlot="b"
-                        startTime={row.bTimeStartTime || DEFAULT_START.b}
-                        endTime={row.bTimeEndTime || DEFAULT_END}
-                        workerId={row.bTimeWorkerId}
-                        workers={workers}
-                        dayOfWeek={d.dayName}
-                        scheduleDate={d.dateStr}
-                        hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
-                        onWorkerChange={(id) => {
-                          const w = workers.find((w) => w.id === id);
-                          saveSchedule(d.dateStr, { bTimeWorkerId: id }, w?.defaultStartTime || w?.defaultEndTime ? { slot: "b", startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
-                        }}
-                        onTimeChange={handleUpdateTime}
-                      />
-                      {/* C타임: 금/토 기본 표시, 평일은 + 버튼 */}
-                      {isWeekend || row.cTimeWorkerId || expandedCSlots.has(d.dateStr) ? (
-                        <TimeSlotRow
-                          label="C"
-                          timeSlot="c"
-                          startTime={row.cTimeStartTime || DEFAULT_START.c}
-                          endTime={row.cTimeEndTime || DEFAULT_END}
-                          workerId={row.cTimeWorkerId}
-                          workers={workers}
-                          dayOfWeek={d.dayName}
-                          scheduleDate={d.dateStr}
-                          hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
-                          onWorkerChange={(id) => {
-                            const w = workers.find((w) => w.id === id);
-                            saveSchedule(d.dateStr, { cTimeWorkerId: id }, w?.defaultStartTime || w?.defaultEndTime ? { slot: "c", startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
-                            if (!id && !isWeekend) setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
-                          }}
-                          onTimeChange={handleUpdateTime}
-                          onRemove={!isWeekend ? () => {
-                            saveSchedule(d.dateStr, { cTimeWorkerId: null });
-                            setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
-                          } : undefined}
-                        />
-                      ) : (
-                        <button
-                          onClick={() => setExpandedCSlots((prev) => new Set(prev).add(d.dateStr))}
-                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground border border-dashed border-border/50 hover:border-border rounded-md px-2 py-1.5 w-full transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                          C타임 추가
-                        </button>
-                      )}
-
-                      {/* D타임: 모든 요일에 수습 추가 슬롯 */}
-                      {row.dTimeWorkerId || expandedDSlots.has(d.dateStr) ? (
-                        <TimeSlotRow
-                          label="D"
-                          timeSlot="d"
-                          startTime={row.dTimeStartTime || "18:00"}
-                          endTime={row.dTimeEndTime || "21:00"}
-                          workerId={row.dTimeWorkerId ?? null}
-                          workers={workers}
-                          dayOfWeek={d.dayName}
-                          scheduleDate={d.dateStr}
-                          hasSchedule={!!existingSchedules.find((s) => s.scheduleDate === d.dateStr)}
-                          onWorkerChange={(id) => {
-                            const w = workers.find((w) => w.id === id);
-                            saveSchedule(d.dateStr, { dTimeWorkerId: id }, w?.defaultStartTime || w?.defaultEndTime ? { slot: "d", startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
-                            if (!id) setExpandedDSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
-                          }}
-                          onTimeChange={handleUpdateTime}
-                          onRemove={() => {
-                            saveSchedule(d.dateStr, { dTimeWorkerId: null });
-                            setExpandedDSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
-                          }}
-                        />
-                      ) : (
-                        <button
-                          onClick={() => setExpandedDSlots((prev) => new Set(prev).add(d.dateStr))}
-                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground border border-dashed border-border/50 hover:border-border rounded-md px-2 py-1.5 w-full transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                          수습 추가
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Validation errors */}
-                  {row.isOperating && errors.length > 0 && (
-                    <div className="space-y-1 pt-1 border-t border-border/50">
-                      {errors.map((err, i) => (
-                        <div
-                          key={i}
-                          className={`flex items-center gap-1.5 text-[11px] ${
-                            err.type === "no_main" || err.type === "day_off"
-                              ? "text-destructive"
-                              : "text-yellow-500"
-                          }`}
-                        >
-                          <AlertTriangle className="w-3 h-3 shrink-0" />
-                          <span>{err.message}</span>
+                  return (
+                    <tr key={d.dateStr} className="border-b border-border/50 last:border-0">
+                      {/* 날짜 + 스위치 */}
+                      <th className="px-3 py-2 text-center">
+                        <div className="flex flex-col items-center gap-1.5">
+                          <span className={`text-sm font-bold ${isWeekend ? "text-primary" : "text-foreground/70"}`}>
+                            {d.dayName}
+                          </span>
+                          <span className={`text-base font-bold ${hasErrors ? "text-destructive" : isWeekend ? "text-primary/80" : "text-foreground"}`}>
+                            {d.date.getDate()}
+                          </span>
+                          <Switch
+                            checked={isOperating}
+                            onCheckedChange={(checked) => saveSchedule(d.dateStr, { isOperating: checked })}
+                            className="scale-90 data-[state=checked]:bg-primary"
+                          />
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </th>
+                      {/* A/B/C/D 슬롯 셀 */}
+                      {(["a", "b", "c", "d"] as const).map((slot) => {
+                        const slotLabel = slot.toUpperCase();
+                        const workerKey = `${slot}TimeWorkerId` as keyof ScheduleRow;
+                        const startKey = `${slot}TimeStartTime` as keyof ScheduleRow;
+                        const endKey = `${slot}TimeEndTime` as keyof ScheduleRow;
+                        const defaultStart = DEFAULT_START[slot] ?? "18:00";
 
-                  {/* All good indicator */}
-                  {row.isOperating && errors.length === 0 &&
-                    (row.aTimeWorkerId || row.bTimeWorkerId) && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-green-500 pt-1 border-t border-border/50">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>정상 배정</span>
-                      </div>
-                    )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                        const workerId = (row?.[workerKey] as number | null) ?? null;
+                        const worker = workers.find((w) => w.id === workerId);
+                        const startTime = (row?.[startKey] as string | null) || defaultStart;
+                        const endTime = (row?.[endKey] as string | null) || DEFAULT_END;
+                        const hasSchedule = !!existingSchedules.find((s) => s.scheduleDate === d.dateStr);
+                        const isViolation = isDayOffViolation(workerId, d.dayName, workers);
+
+                        // C/D 타임: 평일은 배정 없고 미확장이면 + 버튼
+                        const showCAdd = slot === "c" && !isWeekend && !workerId && !expandedCSlots.has(d.dateStr);
+                        const showDAdd = slot === "d" && !workerId && !expandedDSlots.has(d.dateStr);
+
+                        if (!isOperating) {
+                          return <td key={slot} className="p-1.5 text-center text-muted-foreground/20 text-sm">-</td>;
+                        }
+
+                        if (showCAdd || showDAdd) {
+                          return (
+                            <td key={slot} className="p-1.5 text-center">
+                              <button
+                                onClick={() => slot === "c"
+                                  ? setExpandedCSlots((prev) => new Set(prev).add(d.dateStr))
+                                  : setExpandedDSlots((prev) => new Set(prev).add(d.dateStr))
+                                }
+                                className="w-full flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground border border-dashed border-border/20 hover:border-border/50 rounded py-2.5 transition-colors"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          );
+                        }
+
+                        return (
+                          <td key={slot} className="p-1.5">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className={`w-full rounded px-1 py-2.5 text-center text-xs font-medium transition-colors border ${
+                                  isViolation
+                                    ? "bg-destructive/15 border-destructive/30 text-destructive"
+                                    : workerId
+                                    ? "bg-primary/10 border-primary/25 text-foreground hover:bg-primary/20"
+                                    : "bg-secondary/30 border-border/20 text-muted-foreground/40 hover:bg-secondary/60"
+                                }`}>
+                                  {worker ? worker.name.slice(-2) : "+"}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-56 p-2 bg-card border-border" align="center" side="bottom">
+                                <p className="text-[10px] text-muted-foreground mb-1.5 font-medium">{d.dayName} {formatDate(d.dateStr)} · {slotLabel}타임</p>
+                                {/* 알바생 선택 */}
+                                <Select
+                                  value={workerId ? String(workerId) : NONE_VALUE}
+                                  onValueChange={(v) => {
+                                    const id = v === NONE_VALUE ? null : Number(v);
+                                    const w = workers.find((ww) => ww.id === id);
+                                    saveSchedule(d.dateStr, { [workerKey]: id } as any, w?.defaultStartTime || w?.defaultEndTime ? { slot, startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
+                                    if (!id) {
+                                      if (slot === "c" && !isWeekend) setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                                      if (slot === "d") setExpandedDSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 text-xs bg-secondary/50 mb-1.5">
+                                    <SelectValue placeholder="알바생 선택" />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-card border-border">
+                                    <SelectItem value={NONE_VALUE} className="text-xs">미배정</SelectItem>
+                                    {workers.filter((w) => w.isActive).map((w) => (
+                                      <SelectItem key={w.id} value={String(w.id)} className="text-xs">
+                                        {w.name}
+                                        {isDayOffViolation(w.id, d.dayName, workers) && " ⚠️"}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {/* 시간 선택 */}
+                                <div className="flex items-center gap-1">
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button className={`flex-1 flex items-center justify-center gap-1 text-[11px] py-1 rounded border transition-colors ${
+                                        hasSchedule ? "border-border/60 bg-secondary/30 hover:bg-secondary/60" : "border-border/20 text-muted-foreground cursor-not-allowed"
+                                      }`} disabled={!hasSchedule}>
+                                        <Clock className="w-3 h-3" />{startTime}
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-32 p-1 bg-card border-border">
+                                      <p className="text-[10px] text-muted-foreground px-1 py-0.5">출근</p>
+                                      <div className="grid grid-cols-2 gap-0.5">
+                                        {START_TIMES.map((t) => (
+                                          <button key={t} onClick={() => handleUpdateTime(d.dateStr, slot, t, undefined)}
+                                            className={`text-xs px-1 py-1 rounded transition-colors ${t === startTime ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}>{t}</button>
+                                        ))}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                  <span className="text-muted-foreground/40">~</span>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button className={`flex-1 flex items-center justify-center gap-1 text-[11px] py-1 rounded border transition-colors ${
+                                        hasSchedule ? "border-border/60 bg-secondary/30 hover:bg-secondary/60" : "border-border/20 text-muted-foreground cursor-not-allowed"
+                                      }`} disabled={!hasSchedule}>
+                                        <Clock className="w-3 h-3" />{endTime}
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-32 p-1 bg-card border-border">
+                                      <p className="text-[10px] text-muted-foreground px-1 py-0.5">퇴근</p>
+                                      <div className="grid grid-cols-2 gap-0.5">
+                                        {END_TIMES.map((t) => (
+                                          <button key={t} onClick={() => handleUpdateTime(d.dateStr, slot, undefined, t)}
+                                            className={`text-xs px-1 py-1 rounded transition-colors ${t === endTime ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}>{t}</button>
+                                        ))}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+                                {/* C/D 제거 버튼 */}
+                                {((slot === "c" && !isWeekend) || slot === "d") && workerId && (
+                                  <button
+                                    onClick={() => {
+                                      saveSchedule(d.dateStr, { [workerKey]: null } as any);
+                                      if (slot === "c") setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                                      if (slot === "d") setExpandedDSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                                    }}
+                                    className="mt-1.5 w-full text-[10px] text-muted-foreground/50 hover:text-destructive flex items-center justify-center gap-1 transition-colors"
+                                  >
+                                    <X className="w-3 h-3" /> {slotLabel}타임 제거
+                                  </button>
+                                )}
+                              </PopoverContent>
+                            </Popover>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 유효성 에러 요약 */}
+          {weekDates.some((d) => {
+            const row = scheduleMap[d.dateStr];
+            return row && validateRow(row, workers).some((e) => e.type === "no_main" || e.type === "day_off");
+          }) && (
+            <div className="border-t border-border/30 px-3 py-2 space-y-1">
+              {weekDates.map((d) => {
+                const row = scheduleMap[d.dateStr];
+                if (!row) return null;
+                const errors = validateRow(row, workers).filter((e) => e.type === "no_main" || e.type === "day_off");
+                if (errors.length === 0) return null;
+                return errors.map((err, i) => (
+                  <div key={`${d.dateStr}-${i}`} className="flex items-center gap-1.5 text-[11px] text-destructive">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    <span>{d.dayName}{d.date.getDate()} · {err.message}</span>
+                  </div>
+                ));
+              })}
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* Auto-assign confirmation dialog */}

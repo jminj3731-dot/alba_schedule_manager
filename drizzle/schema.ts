@@ -40,6 +40,10 @@ export const workers = mysqlTable("workers", {
   defaultStartTime: varchar("defaultStartTime", { length: 10 }),
   /** 기본 퇴근 시간 (예: "21:00", Master에서 배정 시 자동 세팅) */
   defaultEndTime: varchar("defaultEndTime", { length: 10 }),
+  /** 주간 목표 최소 근무일수 (예: 3) */
+  targetDaysMin: int("targetDaysMin").default(3),
+  /** 주간 목표 최대 근무일수 (예: 4) */
+  targetDaysMax: int("targetDaysMax").default(4),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
