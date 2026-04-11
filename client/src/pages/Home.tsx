@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -149,7 +149,7 @@ function isToday(dateStr: string) {
 
 export default function Home() {
   const [workerName, setWorkerName] = useState("");
-  const [loggedInName, setLoggedInName] = useState<string | null>(null);
+  const [loggedInName, setLoggedInName] = useState<string | null>(() => localStorage.getItem("loggedInName"));
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
   const [viewMode, setViewMode] = useState<"card" | "calendar">("card");
@@ -197,6 +197,16 @@ export default function Home() {
   }, [monthOffset]);
 
   const { data: workers = [] } = trpc.workers.list.useQuery();
+
+  // 자동 로그인: workers 로드 후 localStorage에 저장된 이름으로 prefDays 세팅
+  useEffect(() => {
+    if (loggedInName && workers.length > 0 && prefDays.length === 0) {
+      const found = workers.find((w) => w.name === loggedInName);
+      if (found?.preferredDays) {
+        setPrefDays(found.preferredDays.split(",").filter(Boolean));
+      }
+    }
+  }, [workers, loggedInName]);
   const { data: schedules = [] } = trpc.schedules.getByDateRange.useQuery({ startDate, endDate });
   const { data: monthSchedules = [] } = trpc.schedules.getByDateRange.useQuery(
     { startDate: monthRange.start, endDate: monthRange.end },
@@ -415,6 +425,7 @@ export default function Home() {
       return;
     }
     setLoggedInName(name);
+    localStorage.setItem("loggedInName", name);
     setPrefDays(found.preferredDays ? found.preferredDays.split(",").filter(Boolean) : []);
     if (name !== "전민서") {
       notifyScheduleViewMutation.mutate({
@@ -426,6 +437,7 @@ export default function Home() {
 
   function handleLogout() {
     setLoggedInName(null);
+    localStorage.removeItem("loggedInName");
     setWorkerName("");
     setWeekOffset(0);
   }
