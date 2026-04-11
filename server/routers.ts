@@ -787,8 +787,8 @@ export const appRouter = router({
             if (subs.length > 0) {
               await sendPushToWorker(
                 worker.name,
-                `📅 ${weekLabel} 스케줄이 등록됐어요!`,
-                "스케줄을 확인해주세요."
+                `${weekLabel} 스케줄 등록`,
+                "앱에서 확인해주세요."
               );
               pushCount++;
             } else if (worker.email) {
