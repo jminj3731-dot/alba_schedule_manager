@@ -11,17 +11,26 @@ import FullSchedule from "./pages/FullSchedule";
 import Statistics from "./pages/Statistics";
 import PayCalculator from "./pages/PayCalculator";
 import ActivityLog from "./pages/ActivityLog";
+import AdminGuard from "./components/AdminGuard";
 
 function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
-      <Route path={"/settings"} component={Settings} />
-      <Route path={"/master"} component={Master} />
+      <Route path={"/settings"}>
+        <AdminGuard><Settings /></AdminGuard>
+      </Route>
+      <Route path={"/master"}>
+        <AdminGuard><Master /></AdminGuard>
+      </Route>
       <Route path={"/full-schedule"} component={FullSchedule} />
-      <Route path={"/statistics"} component={Statistics} />
+      <Route path={"/statistics"}>
+        <AdminGuard><Statistics /></AdminGuard>
+      </Route>
       <Route path={"/pay-calculator"} component={PayCalculator} />
-      <Route path={"/activity-log"} component={ActivityLog} />
+      <Route path={"/activity-log"}>
+        <AdminGuard><ActivityLog /></AdminGuard>
+      </Route>
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

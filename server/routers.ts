@@ -582,6 +582,13 @@ export const appRouter = router({
         await setAppSetting(input.key, input.value);
         return { success: true };
       }),
+
+    verifyAdminPassword: publicProcedure
+      .input(z.object({ password: z.string() }))
+      .mutation(async ({ input }) => {
+        const stored = await getAppSetting("adminPassword") ?? "0000";
+        return { ok: input.password === stored };
+      }),
   }),
 
   attendanceCorrections: router({

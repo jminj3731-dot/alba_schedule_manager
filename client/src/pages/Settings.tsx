@@ -440,6 +440,9 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        {/* 비밀번호 설정 */}
+        <AdminPasswordSettings />
+
         {/* 알림 설정 */}
         <AdminNotificationSettings />
 
@@ -742,6 +745,55 @@ function calcPayPeriod(payDay: number): { startDate: string; endDate: string } {
 
   const fmt = (d: Date) => d.toISOString().split("T")[0];
   return { startDate: fmt(periodStart), endDate: fmt(periodEnd) };
+}
+
+function AdminPasswordSettings() {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const setMutation = trpc.settings.set.useMutation({
+    onSuccess: () => {
+      toast.success("비밀번호가 변경되었습니다.");
+      setNewPassword("");
+      setConfirm("");
+    },
+    onError: () => toast.error("저장에 실패했습니다."),
+  });
+
+  return (
+    <Card className="border-border/50">
+      <CardContent className="p-4 space-y-3">
+        <p className="text-sm font-medium">관리자 비밀번호 변경</p>
+        <div className="flex gap-2">
+          <Input
+            type="password"
+            placeholder="새 비밀번호"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="bg-secondary/50 text-sm"
+          />
+          <Input
+            type="password"
+            placeholder="확인"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            className="bg-secondary/50 text-sm"
+          />
+          <Button
+            size="sm"
+            disabled={!newPassword || newPassword !== confirm || setMutation.isPending}
+            onClick={() => setMutation.mutate({ key: "adminPassword", value: newPassword })}
+            className="shrink-0"
+          >
+            변경
+          </Button>
+        </div>
+        {newPassword && confirm && newPassword !== confirm && (
+          <p className="text-xs text-destructive">비밀번호가 일치하지 않습니다.</p>
+        )}
+        <p className="text-[10px] text-muted-foreground">기본 비밀번호: 0000</p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function AdminNotificationSettings() {
