@@ -289,15 +289,15 @@ export default function Settings() {
     <AppLayout>
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <h2 className="text-xl font-bold">Settings</h2>
-            <p className="text-sm text-muted-foreground">알바생 명단 및 주간 통계</p>
+            <p className="hidden sm:block text-sm text-muted-foreground">알바생 명단 및 주간 통계</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Button variant="outline" size="sm" className="gap-1.5 bg-transparent" onClick={() => setAnnouncementDialogOpen(true)}>
               <Megaphone className="w-3.5 h-3.5" />
-              공지
+              <span className="hidden sm:inline">공지</span>
             </Button>
             <Button
               variant="outline"
@@ -307,11 +307,11 @@ export default function Settings() {
               onClick={() => testNotificationMutation.mutate()}
             >
               <Bell className="w-3.5 h-3.5" />
-              {testNotificationMutation.isPending ? "..." : "테스트"}
+              <span className="hidden sm:inline">{testNotificationMutation.isPending ? "..." : "테스트"}</span>
             </Button>
             <Button onClick={openCreateDialog} size="sm" className="gap-1.5">
               <Plus className="w-4 h-4" />
-              추가
+              <span className="hidden sm:inline">추가</span>
             </Button>
           </div>
         </div>

@@ -273,12 +273,12 @@ export default function Master() {
     <AppLayout>
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <h2 className="text-xl font-bold">Master</h2>
-            <p className="text-sm text-muted-foreground">스케줄 관리 (관리자용)</p>
+            <p className="hidden sm:block text-sm text-muted-foreground">스케줄 관리 (관리자용)</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Button
               variant="outline"
               size="sm"
@@ -287,7 +287,7 @@ export default function Master() {
               onClick={() => copyPrevWeekMutation.mutate({ startDate, endDate })}
             >
               <Copy className="w-3.5 h-3.5" />
-              {copyPrevWeekMutation.isPending ? "복사 중..." : "전주 복사"}
+              <span className="hidden sm:inline">{copyPrevWeekMutation.isPending ? "복사 중..." : "전주 복사"}</span>
             </Button>
             <Button
               variant="outline"
@@ -297,7 +297,7 @@ export default function Master() {
               onClick={() => scheduleReadyMutation.mutate({ startDate, endDate })}
             >
               <Bell className="w-3.5 h-3.5" />
-              {scheduleReadyMutation.isPending ? "발송 중..." : "스케줄 알림"}
+              <span className="hidden sm:inline">{scheduleReadyMutation.isPending ? "발송 중..." : "알림"}</span>
             </Button>
             <Button
               size="sm"
@@ -305,7 +305,7 @@ export default function Master() {
               onClick={() => setAutoAssignDialogOpen(true)}
             >
               <Wand2 className="w-4 h-4" />
-              자동 배정
+              <span className="hidden sm:inline">자동 배정</span>
             </Button>
           </div>
         </div>
