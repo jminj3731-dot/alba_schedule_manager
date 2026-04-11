@@ -17,6 +17,8 @@ import {
   List,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   User,
   Coffee,
   Clock,
@@ -539,6 +541,20 @@ export default function Home() {
               <User className="w-3 h-3" />
               {loggedInName}
             </Badge>
+            {pushSupported && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={pushSubscribed ? unsubscribePush : subscribePush}
+                title={pushSubscribed ? "알림 켜짐 (클릭하여 해제)" : "알림 꺼짐 (클릭하여 허용)"}
+              >
+                {pushSubscribed
+                  ? <Bell className="w-4 h-4 text-green-500" />
+                  : <BellOff className="w-4 h-4 text-muted-foreground" />
+                }
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
             </Button>
@@ -548,99 +564,27 @@ export default function Home() {
 
       {/* Main content */}
       <main className="flex-1 container py-4 pb-6">
-        <div className="max-w-2xl mx-auto space-y-4">
-          {/* Worker info card */}
-          {currentWorker && (
-            <Card className="bg-card border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <User className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{currentWorker.name}</span>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-1.5 py-0 ${
-                            currentWorker.skillLevel === "main"
-                              ? "border-primary/50 text-primary"
-                              : currentWorker.skillLevel === "trainee"
-                              ? "border-orange-500/50 text-orange-400"
-                              : "border-border text-muted-foreground"
-                          }`}
-                        >
-                          {currentWorker.skillLevel === "main" ? "메인" : currentWorker.skillLevel === "trainee" ? "수습" : "서브"}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        이번 주 근무: {mySchedules.length}일
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 bg-transparent text-xs"
-                    onClick={() => setPrefDialogOpen(true)}
-                  >
-                    <CalendarCheck className="w-3.5 h-3.5" />
-                    선호 근무일
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 공지사항 배너 */}
-          <AnnouncementBanner />
-
-          {/* 푸시 알림 배너 */}
+        <div className="max-w-2xl mx-auto space-y-2.5">
+          {/* 1. 푸시 알림 배너 */}
           {pushSupported && !pushSubscribed && pushPermission !== "denied" && (
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-primary shrink-0" />
-                    <p className="text-xs text-foreground">
-                      출근 알림을 받으려면 알림을 허용해주세요
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs shrink-0"
-                    disabled={pushLoading}
-                    onClick={subscribePush}
-                  >
-                    {pushLoading ? "처리 중..." : "허용"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {pushSupported && pushSubscribed && (
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Bell className="w-3.5 h-3.5 text-green-500" />
-                <span>알림 켜짐</span>
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-primary/10 border border-primary/30">
+              <Bell className="w-4 h-4 text-primary shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-primary">출근 알림 받기</p>
+                <p className="text-[11px] text-muted-foreground">우측 상단 종 아이콘을 탭해주세요</p>
               </div>
-              <button
-                className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground"
-                onClick={unsubscribePush}
-              >
-                <BellOff className="w-3 h-3" />
-              </button>
             </div>
           )}
 
-          {/* 오늘 출퇴근 고정 섹션 */}
-          {(() => {
+          {/* 2. 공지사항 배너 */}
+          <AnnouncementBanner />
+
+          {/* 3. 프로필 + 오늘 출퇴근 통합 카드 */}
+          {currentWorker && (() => {
             const todayStr = toLocalDateStr(new Date());
             const todaySchedule = schedules.find((s) => s.scheduleDate === todayStr);
             const todaySlot = todaySchedule ? getMyTimeSlot(todaySchedule) : null;
             const todayIsOff = todaySchedule && !todaySchedule.isOperating;
-
             const checkedInTime = todaySlot && todaySchedule ? (
               todaySlot.slot === "a" ? (todaySchedule as any).aTimeActualStartTime :
               todaySlot.slot === "b" ? (todaySchedule as any).bTimeActualStartTime :
@@ -654,10 +598,48 @@ export default function Home() {
 
             return (
               <Card className="bg-card border-primary/30 border">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Clock className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold text-primary">오늘 출퇴근</span>
+                <CardContent className="px-4 py-3">
+                  {/* 프로필 행 */}
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-sm">{currentWorker.name}</span>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0 ${
+                            currentWorker.skillLevel === "main"
+                              ? "border-primary/50 text-primary"
+                              : currentWorker.skillLevel === "trainee"
+                              ? "border-orange-500/50 text-orange-400"
+                              : "border-border text-muted-foreground"
+                          }`}
+                        >
+                          {currentWorker.skillLevel === "main" ? "메인" : currentWorker.skillLevel === "trainee" ? "수습" : "서브"}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">· 이번 주 {mySchedules.length}일</span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 text-xs h-7 px-2.5 border-white/30 text-white hover:bg-white/10"
+                      onClick={() => setPrefDialogOpen(true)}
+                    >
+                      <CalendarCheck className="w-3 h-3" />
+                      선호 근무일 지정
+                    </Button>
+                  </div>
+
+                  {/* 구분선 */}
+                  <div className="border-t border-border/40 mb-2.5" />
+
+                  {/* 오늘 출퇴근 행 */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-primary">오늘 출퇴근</span>
                     <span className="text-xs text-muted-foreground ml-auto">
                       {new Date().toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", weekday: "short" })}
                     </span>
@@ -674,7 +656,7 @@ export default function Home() {
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-2">
                         <Badge className="bg-primary text-primary-foreground text-xs px-2 py-0.5">
                           {todaySlot.label}타임
                         </Badge>
@@ -682,13 +664,13 @@ export default function Home() {
                       </div>
                       <div className="flex gap-2">
                         {checkedInTime ? (
-                          <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-green-500/10 border border-green-500/30">
-                            <CheckCircle className="w-4 h-4 text-green-500" />
+                          <div className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
                             <span className="text-sm font-medium text-green-500">출근 {checkedInTime}</span>
                           </div>
                         ) : (
                           <Button
-                            className="flex-1 h-10 gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                            className="flex-1 h-9 gap-1.5 bg-transparent border border-green-500/60 text-green-400 hover:bg-green-500/10 text-sm"
                             disabled={checkInMutation.isPending || locationChecking}
                             onClick={() => {
                               scheduledStartRef.current = todaySlot.startTime;
@@ -702,7 +684,7 @@ export default function Home() {
                                   setLocationChecking(false);
                                   const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, STORE_LAT, STORE_LNG);
                                   if (dist > STORE_RADIUS_M) {
-                                    toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (\ud604재 거리: ${Math.round(dist)}m)\n가게 근처에서만 출근할 수 있습니다.`);
+                                    toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (현재 거리: ${Math.round(dist)}m)\n가게 근처에서만 출근할 수 있습니다.`);
                                     return;
                                   }
                                   const actualTime = getCurrentTimeStr();
@@ -740,14 +722,14 @@ export default function Home() {
                           </Button>
                         )}
                         {checkedOutTime ? (
-                          <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                            <CheckCircle className="w-4 h-4 text-blue-400" />
+                          <div className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                            <CheckCircle className="w-3.5 h-3.5 text-blue-400" />
                             <span className="text-sm font-medium text-blue-400">퇴근 {checkedOutTime}</span>
                           </div>
                         ) : (
                           <Button
                             variant="outline"
-                            className="flex-1 h-10 gap-1.5 bg-transparent border-primary/40 text-primary hover:bg-primary/10"
+                            className="flex-1 h-9 gap-1.5 bg-transparent border border-primary/60 text-primary hover:bg-primary/10 text-sm"
                             disabled={checkOutMutation.isPending || !checkedInTime || locationChecking}
                             onClick={() => {
                               checkedInTimeRef.current = checkedInTime || "";
@@ -761,7 +743,7 @@ export default function Home() {
                                   setLocationChecking(false);
                                   const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, STORE_LAT, STORE_LNG);
                                   if (dist > STORE_RADIUS_M) {
-                                    toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (\ud604재 거리: ${Math.round(dist)}m)\n가게 근처에서만 퇴근할 수 있습니다.`);
+                                    toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (현재 거리: ${Math.round(dist)}m)\n가게 근처에서만 퇴근할 수 있습니다.`);
                                     return;
                                   }
                                   const actualTime = getCurrentTimeStr();
@@ -809,6 +791,7 @@ export default function Home() {
             );
           })()}
 
+
           {/* View mode toggle */}
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "card" | "calendar")}>
             <TabsList className="w-full bg-secondary/50">
@@ -823,9 +806,9 @@ export default function Home() {
             </TabsList>
 
             {/* Card View */}
-            <TabsContent value="card" className="mt-3 space-y-2">
+            <TabsContent value="card" className="mt-3">
               {/* Week navigation */}
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-2">
                 <Button variant="outline" size="icon" className="h-8 w-8 bg-transparent" onClick={() => setWeekOffset((p) => p - 1)}>
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
@@ -834,74 +817,109 @@ export default function Home() {
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
-              {weekDates.map((d) => {
-                const schedule = schedules.find((s) => s.scheduleDate === d.dateStr);
-                const isWeekend = WEEKEND_DAYS.includes(d.dayName);
-                const today = isToday(d.dateStr);
-                const isOff = schedule && !schedule.isOperating;
-                const mySlot = schedule ? getMyTimeSlot(schedule) : null;
-                const isMyDay = !!mySlot;
 
-                if (isOff) {
-                  return (
-                    <Card key={d.dateStr} className="bg-muted/20 border-border/50 opacity-60">
-                      <CardContent className="p-3 flex items-center gap-3">
-                        <DayBadge dayName={d.dayName} date={d.date} isWeekend={isWeekend} isToday={today} isMyDay={false} />
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Coffee className="w-4 h-4" />
-                          <span className="text-sm">휴무</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                }
+              {/* 7일 블럭 그리드 */}
+              <div className="grid grid-cols-7 gap-1.5">
+                {weekDates.map((d) => {
+                  const schedule = schedules.find((s) => s.scheduleDate === d.dateStr);
+                  const isWeekend = WEEKEND_DAYS.includes(d.dayName);
+                  const today = isToday(d.dateStr);
+                  const isOff = schedule && !schedule.isOperating;
+                  const mySlot = schedule ? getMyTimeSlot(schedule) : null;
+                  const isMyDay = !!mySlot;
 
-                {
-                  // 출퇴근 버튼 표시 조건: 오늘 날짜이고 내 근무가 있을 때
                   const checkedInTime = mySlot && schedule ? (
                     mySlot.slot === "a" ? (schedule as any).aTimeActualStartTime :
                     mySlot.slot === "b" ? (schedule as any).bTimeActualStartTime :
                     (schedule as any).cTimeActualStartTime
                   ) : null;
-                  const checkedOutTime = mySlot && schedule ? (
-                    mySlot.slot === "a" ? (schedule as any).aTimeActualEndTime :
-                    mySlot.slot === "b" ? (schedule as any).bTimeActualEndTime :
-                    (schedule as any).cTimeActualEndTime
-                  ) : null;
 
                   return (
-                  <Card
-                    key={d.dateStr}
-                    className={`border-border transition-all ${
-                      isMyDay
-                        ? "border-primary/60 bg-primary/5"
-                        : today
-                        ? "border-border bg-card"
-                        : "bg-card"
-                    }`}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <DayBadge dayName={d.dayName} date={d.date} isWeekend={isWeekend} isToday={today} isMyDay={isMyDay} />
-                        <div className="flex-1">
-                          {isMyDay && mySlot ? (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge className="bg-primary text-primary-foreground text-xs px-2 py-0.5">
-                                {mySlot.label}타임
-                              </Badge>
-                              <span className="text-sm font-medium">{mySlot.time}</span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">근무 없음</span>
+                    <div
+                      key={d.dateStr}
+                      className={`flex flex-col items-center justify-center gap-1 py-3 px-1 rounded-xl border transition-all ${
+                        isOff
+                          ? "bg-muted/10 border-border/20 opacity-40"
+                          : isMyDay
+                          ? "bg-primary/10 border-primary/40"
+                          : today
+                          ? "bg-secondary/50 border-border/30"
+                          : "bg-card/30 border-border/15"
+                      }`}
+                    >
+                      {/* 요일 */}
+                      <span className={`text-[11px] font-medium leading-none ${
+                        isMyDay ? "text-primary" : isWeekend ? "text-primary/50" : "text-muted-foreground/50"
+                      }`}>{d.dayName}</span>
+
+                      {/* 날짜 */}
+                      <span className={`text-base font-bold leading-none ${
+                        today ? "text-primary" : isMyDay ? "text-foreground" : "text-muted-foreground/50"
+                      }`}>{d.date.getDate()}</span>
+
+                      {/* 상태 */}
+                      <div className="h-4 flex items-center justify-center">
+                        {isOff ? (
+                          <Coffee className="w-3 h-3 text-muted-foreground/40" />
+                        ) : isMyDay && mySlot ? (
+                          <span className="text-[9px] font-bold text-primary leading-none">{mySlot.label}타임</span>
+                        ) : (
+                          <span className="text-[9px] text-muted-foreground/25 leading-none">-</span>
+                        )}
+                      </div>
+
+                      {/* 출근 체크 표시 */}
+                      {isMyDay && checkedInTime && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 선택된 날 상세 정보 (근무일만) */}
+              {weekDates.some((d) => {
+                const schedule = schedules.find((s) => s.scheduleDate === d.dateStr);
+                return schedule ? !!getMyTimeSlot(schedule) : false;
+              }) && (
+                <Card className="mt-2 border-border/30">
+                  <CardContent className="p-3 space-y-0.5">
+                    {weekDates.map((d) => {
+                      const schedule = schedules.find((s) => s.scheduleDate === d.dateStr);
+                      const isOff = schedule && !schedule.isOperating;
+                      const mySlot = schedule ? getMyTimeSlot(schedule) : null;
+                      if (!mySlot || isOff) return null;
+                      const today = isToday(d.dateStr);
+
+                      const checkedInTime = (
+                        mySlot.slot === "a" ? (schedule as any).aTimeActualStartTime :
+                        mySlot.slot === "b" ? (schedule as any).bTimeActualStartTime :
+                        (schedule as any).cTimeActualStartTime
+                      );
+                      const checkedOutTime = (
+                        mySlot.slot === "a" ? (schedule as any).aTimeActualEndTime :
+                        mySlot.slot === "b" ? (schedule as any).bTimeActualEndTime :
+                        (schedule as any).cTimeActualEndTime
+                      );
+
+                      return (
+                        <div key={d.dateStr} className={`flex items-center gap-3 py-2.5 ${today ? "text-foreground" : "text-foreground/80"}`}>
+                          <span className={`text-sm font-semibold w-14 shrink-0 ${today ? "text-primary" : "text-muted-foreground"}`}>
+                            {d.dayName} {d.date.getDate()}일
+                          </span>
+                          <Badge className="bg-primary/20 text-primary border-primary/30 text-xs px-2 py-0.5">
+                            {mySlot.label}타임
+                          </Badge>
+                          <span className="text-sm text-foreground/60 flex-1">{mySlot.time}</span>
+                          {checkedInTime && (
+                            <span className="text-xs text-green-500 font-medium tabular-nums">{checkedInTime}</span>
                           )}
-                        </div>
-                        {isMyDay && mySlot && schedule && (
+                          {checkedOutTime && (
+                            <span className="text-xs text-muted-foreground/50 tabular-nums">~{checkedOutTime}</span>
+                          )}
                           <Popover>
                             <PopoverTrigger asChild>
-                              <button
-                                className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                                title="퇴근 시간 수정"
-                              >
+                              <button className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground/30 hover:text-primary transition-colors">
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
                             </PopoverTrigger>
@@ -931,144 +949,12 @@ export default function Home() {
                               </div>
                             </PopoverContent>
                           </Popover>
-                        )}
-                      </div>
-
-                      {/* 출근/퇴근 버튼 - 오늘 날짜이고 내 근무가 있을 때만 표시 */}
-                      {today && isMyDay && mySlot && schedule && (
-                        <div className="mt-3 pt-3 border-t border-border/50">
-                          <div className="flex gap-2">
-                            {/* 출근 버튼 */}
-                            {checkedInTime ? (
-                              <div className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-green-500/10 border border-green-500/30">
-                                <CheckCircle className="w-4 h-4 text-green-500" />
-                                <span className="text-xs font-medium text-green-500">출근 {checkedInTime}</span>
-                              </div>
-                            ) : (
-                              <Button
-                                className="flex-1 h-9 gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm"
-                                disabled={checkInMutation.isPending || locationChecking}
-                                onClick={() => {
-                                  scheduledStartRef.current = mySlot.startTime;
-                                  if (!navigator.geolocation) {
-                                    toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
-                                    return;
-                                  }
-                                  setLocationChecking(true);
-                                  navigator.geolocation.getCurrentPosition(
-                                    (pos) => {
-                                      setLocationChecking(false);
-                                      const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, STORE_LAT, STORE_LNG);
-                                      if (dist > STORE_RADIUS_M) {
-                                        toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (현재 거리: ${Math.round(dist)}m)\n가게 근처에서만 출근할 수 있습니다.`);
-                                        return;
-                                      }
-                                      const actualTime = getCurrentTimeStr();
-                                      const roundedTime = calcCheckInTime(actualTime, mySlot.startTime);
-                                      checkInMutation.mutate({
-                                        scheduleDate: d.dateStr,
-                                        timeSlot: mySlot.slot,
-                                        startTime: roundedTime,
-                                        actualStartTime: actualTime,
-                                      });
-                                    },
-                                    (err) => {
-                                      setLocationChecking(false);
-                                      if (err.code === 1 || err.code === 3) {
-                                        toast.error("위치 권한이 거부되었거나 응답이 없습니다.\n카카오톡 인앱 브라우저에서는 위치 권한이 제한될 수 있어요.\nSafari 또는 Chrome으로 열어서 다시 시도해주세요.", { duration: 6000 });
-                                      } else {
-                                        toast.error("위치를 확인할 수 없습니다. 다시 시도해주세요.");
-                                      }
-                                    },
-                                    { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
-                                  );
-                                }}
-                              >
-                                {locationChecking ? (
-                                  <>
-                                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    위치 확인 중...
-                                  </>
-                                ) : (
-                                  <>
-                                    <LogIn className="w-4 h-4" />
-                                    출근
-                                  </>
-                                )}
-                              </Button>
-                            )}
-
-                            {/* 퇴근 버튼 */}
-                            {checkedOutTime ? (
-                              <div className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                                <CheckCircle className="w-4 h-4 text-blue-400" />
-                                <span className="text-xs font-medium text-blue-400">퇴근 {checkedOutTime}</span>
-                              </div>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                className="flex-1 h-9 gap-1.5 bg-transparent border-primary/40 text-primary hover:bg-primary/10 text-sm"
-                                disabled={checkOutMutation.isPending || !checkedInTime || locationChecking}
-                                onClick={() => {
-                                  checkedInTimeRef.current = checkedInTime || "";
-                                  if (!navigator.geolocation) {
-                                    toast.error("위치 서비스를 지원하지 않는 브라우저입니다.");
-                                    return;
-                                  }
-                                  setLocationChecking(true);
-                                  navigator.geolocation.getCurrentPosition(
-                                    (pos) => {
-                                      setLocationChecking(false);
-                                      const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, STORE_LAT, STORE_LNG);
-                                      if (dist > STORE_RADIUS_M) {
-                                        toast.error(`가게 반경 ${STORE_RADIUS_M}m 밖에 있습니다. (현재 거리: ${Math.round(dist)}m)\n가게 근처에서만 퇴근할 수 있습니다.`);
-                                        return;
-                                      }
-                                      const actualTime = getCurrentTimeStr();
-                                      const roundedTime = roundTimeToNearest30Min(actualTime);
-                                      checkOutMutation.mutate({
-                                        scheduleDate: d.dateStr,
-                                        timeSlot: mySlot.slot,
-                                        endTime: roundedTime,
-                                        actualEndTime: actualTime,
-                                      });
-                                    },
-                                    (err) => {
-                                      setLocationChecking(false);
-                                      if (err.code === 1) {
-                                        toast.error("위치 권한이 거부되었습니다.\n브라우저 설정에서 위치 권한을 허용해주세요.");
-                                      } else {
-                                        toast.error("위치를 확인할 수 없습니다. 다시 시도해주세요.");
-                                      }
-                                    },
-                                    { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
-                                  );
-                                }}
-                              >
-                                {locationChecking ? (
-                                  <>
-                                    <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                    위치 확인 중...
-                                  </>
-                                ) : (
-                                  <>
-                                    <LogOut className="w-4 h-4" />
-                                    퇴근
-                                  </>
-                                )}
-                              </Button>
-                            )}
-                          </div>
-                          {!checkedInTime && (
-                            <p className="text-[10px] text-muted-foreground text-center mt-1.5">출근 버튼을 먼저 눌러주세요 (가게 반경 100m 내에서만 가능)</p>
-                          )}
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                  );
-                }
-              })}
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Calendar View - 월간 */}
@@ -1339,35 +1225,56 @@ function AnnouncementBanner() {
   const [dismissed, setDismissed] = useState<number[]>(() => {
     try { return JSON.parse(localStorage.getItem("dismissed_announcements") || "[]"); } catch { return []; }
   });
+  const [index, setIndex] = useState(0);
 
   const visible = announcements.filter((a) => !dismissed.includes(a.id));
   if (visible.length === 0) return null;
+
+  const current = visible[Math.min(index, visible.length - 1)];
 
   function dismiss(id: number) {
     const next = [...dismissed, id];
     setDismissed(next);
     localStorage.setItem("dismissed_announcements", JSON.stringify(next));
+    setIndex((i) => Math.max(0, i - 1));
   }
 
   return (
-    <div className="space-y-2">
-      {visible.map((a) => (
-        <Card key={a.id} className="bg-primary/10 border-primary/30">
-          <CardContent className="p-3">
-            <div className="flex items-start gap-2">
-              <Megaphone className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-primary">{a.title}</p>
-                <p className="text-xs text-foreground/80 mt-0.5 whitespace-pre-wrap">{a.content}</p>
+    <Card className="bg-primary/10 border-primary/30">
+      <CardContent className="p-3">
+        <div className="flex items-start gap-2">
+          <Megaphone className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-primary">{current.title}</p>
+            <p className="text-xs text-foreground/80 mt-0.5 whitespace-pre-wrap">{current.content}</p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {visible.length > 1 && (
+              <div className="flex items-center gap-0.5">
+                <button
+                  className="p-0.5 text-muted-foreground/50 hover:text-muted-foreground disabled:opacity-20"
+                  disabled={index === 0}
+                  onClick={() => setIndex((i) => i - 1)}
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[10px] text-muted-foreground">{index + 1}/{visible.length}</span>
+                <button
+                  className="p-0.5 text-muted-foreground/50 hover:text-muted-foreground disabled:opacity-20"
+                  disabled={index === visible.length - 1}
+                  onClick={() => setIndex((i) => i + 1)}
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground" onClick={() => dismiss(a.id)}>
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+            )}
+            <button className="text-muted-foreground/50 hover:text-muted-foreground" onClick={() => dismiss(current.id)}>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
