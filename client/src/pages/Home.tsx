@@ -572,7 +572,7 @@ export default function Home() {
             {/* Hidden admin access - very subtle */}
             <div className="text-center pt-8">
               <button
-                onClick={() => navigate("/settings")}
+                onClick={() => navigate("/master")}
                 className="text-[10px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
               >
                 관리자
