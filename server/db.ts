@@ -205,7 +205,7 @@ export async function createWorker(data: { name: string; skillLevel: "main" | "s
   return { id: result[0].insertId };
 }
 
-export async function updateWorker(id: number, data: { name?: string; skillLevel?: "main" | "sub" | "trainee"; fixedDaysOff?: string; preferredDays?: string; payDay?: number; email?: string | null; hourlyWage?: number | null; defaultStartTime?: string | null; defaultEndTime?: string | null; targetDaysMin?: number | null; targetDaysMax?: number | null }) {
+export async function updateWorker(id: number, data: { name?: string; skillLevel?: "main" | "sub" | "trainee"; fixedDaysOff?: string; preferredDays?: string; payDay?: number | null; email?: string | null; hourlyWage?: number | null; defaultStartTime?: string | null; defaultEndTime?: string | null; targetDaysMin?: number | null; targetDaysMax?: number | null }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const updateSet: Record<string, unknown> = {};
