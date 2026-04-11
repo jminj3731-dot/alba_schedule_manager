@@ -40,7 +40,9 @@ type ActionType =
   | "worker_deleted"
   | "attendance_correction"
   | "correction_skipped"
-  | "email_notification";
+  | "email_notification"
+  | "push_notification"
+  | "notification_failed";
 
 const ACTION_LABELS: Record<ActionType, { label: string; color: string; icon: React.ReactNode }> = {
   end_time_update: {
@@ -89,8 +91,18 @@ const ACTION_LABELS: Record<ActionType, { label: string; color: string; icon: Re
     icon: <ChevronDown className="w-3.5 h-3.5" />,
   },
   email_notification: {
-    label: "이메일/알림 발송",
+    label: "이메일 발송",
     color: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30",
+    icon: <Bell className="w-3.5 h-3.5" />,
+  },
+  push_notification: {
+    label: "푸시 알림",
+    color: "bg-violet-500/15 text-violet-400 border-violet-500/30",
+    icon: <Bell className="w-3.5 h-3.5" />,
+  },
+  notification_failed: {
+    label: "발송 실패",
+    color: "bg-red-500/15 text-red-400 border-red-500/30",
     icon: <Bell className="w-3.5 h-3.5" />,
   },
 };

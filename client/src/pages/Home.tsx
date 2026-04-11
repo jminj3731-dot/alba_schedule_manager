@@ -233,16 +233,6 @@ export default function Home() {
     onSuccess: (_data, variables) => {
       utils.schedules.getByDateRange.invalidate();
       toast.success(`출근 완료! ${variables.startTime} 출근 처리되었습니다.`);
-      if (loggedInName) {
-        const worker = workers.find((w) => w.name === loggedInName);
-        createActivityLogMutation.mutate({
-          workerId: worker?.id ?? null,
-          workerName: loggedInName,
-          actionType: "start_time_update",
-          description: `${loggedInName}님이 ${variables.scheduleDate} 출근 버튼을 눌렀습니다. 실제 시간 ${variables.actualStartTime} → ${variables.startTime}으로 기록`,
-          metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, actualStartTime: variables.actualStartTime, displayStartTime: variables.startTime }),
-        });
-      }
       // 예정 출근 시간보다 15분 이상 늦은 경우 수정 팝업
       const actualMins = timeToMinutes(variables.actualStartTime);
       const scheduledMins = timeToMinutes(scheduledStartRef.current);
@@ -267,16 +257,6 @@ export default function Home() {
     onSuccess: (_data, variables) => {
       utils.schedules.getByDateRange.invalidate();
       toast.success(`퇴근 완료! ${variables.endTime} 퇴근 처리되었습니다.`);
-      if (loggedInName) {
-        const worker = workers.find((w) => w.name === loggedInName);
-        createActivityLogMutation.mutate({
-          workerId: worker?.id ?? null,
-          workerName: loggedInName,
-          actionType: "end_time_update",
-          description: `${loggedInName}님이 ${variables.scheduleDate} 퇴근 버튼을 눌렀습니다. 실제 시간 ${variables.actualEndTime} → ${variables.endTime}으로 기록`,
-          metadata: JSON.stringify({ scheduleDate: variables.scheduleDate, timeSlot: variables.timeSlot, actualEndTime: variables.actualEndTime, displayEndTime: variables.endTime }),
-        });
-      }
       // 출근/퇴근 간격 3분 이하 → 동시 누름으로 판단, 수정 팝업
       const checkOutMins = timeToMinutes(variables.actualEndTime);
       const checkInMins = timeToMinutes(checkedInTimeRef.current);

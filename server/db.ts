@@ -357,15 +357,16 @@ export async function updateScheduleEndTime(data: {
 
   // 알림용 workerName 및 scheduledEndTime 조회
   let workerName: string | null = null;
+  let resolvedWorkerId: number | null = null;
   let scheduledEndTime: string | null = null;
   try {
-    const workerId =
+    resolvedWorkerId =
       data.timeSlot === "a" ? existing.aTimeWorkerId
       : data.timeSlot === "b" ? existing.bTimeWorkerId
       : data.timeSlot === "d" ? (existing as any).dTimeWorkerId
       : existing.cTimeWorkerId;
-    if (workerId) {
-      const w = await getWorkerById(workerId);
+    if (resolvedWorkerId) {
+      const w = await getWorkerById(resolvedWorkerId);
       workerName = w?.name ?? null;
     }
     // 예정 퇴근 시간 (수정 전 기존값)
@@ -376,7 +377,7 @@ export async function updateScheduleEndTime(data: {
       : existing.cTimeEndTime;
   } catch {}
 
-  return { success: true, workerName, scheduledEndTime };
+  return { success: true, workerName, workerId: resolvedWorkerId, scheduledEndTime };
 }
 
 export async function updateScheduleTime(data: {
@@ -415,19 +416,20 @@ export async function updateScheduleTime(data: {
   await db.update(schedules).set(updateField as any).where(eq(schedules.id, existing.id));
 
   let workerName: string | null = null;
+  let resolvedWorkerId: number | null = null;
   try {
-    const workerId =
+    resolvedWorkerId =
       data.timeSlot === "a" ? existing.aTimeWorkerId
       : data.timeSlot === "b" ? existing.bTimeWorkerId
       : data.timeSlot === "c" ? existing.cTimeWorkerId
       : (existing as any).dTimeWorkerId;
-    if (workerId) {
-      const w = await getWorkerById(workerId);
+    if (resolvedWorkerId) {
+      const w = await getWorkerById(resolvedWorkerId);
       workerName = w?.name ?? null;
     }
   } catch {}
 
-  return { success: true, workerName };
+  return { success: true, workerName, workerId: resolvedWorkerId };
 }
 
 export async function getWorkerByName(name: string) {

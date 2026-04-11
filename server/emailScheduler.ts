@@ -176,6 +176,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
           if (hasPush) {
             // 푸시 구독 있으면 푸시만
             await sendPushToWorker(worker.name, `${worker.name}님, 1시간 후 출근이에요!`, `${slot.toUpperCase()}타임 ${startTime} 출근 예정입니다.`);
+            await createActivityLog({ workerId: worker.id, workerName: worker.name, actionType: "push_notification", description: `출근 1시간 전 푸시 알림 발송 (${slot.toUpperCase()}타임 ${startTime})` }).catch(() => {});
           } else if (worker.email) {
             // 푸시 구독 없으면 이메일 fallback
             const result = await sendShiftReminderEmail({
@@ -201,6 +202,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
           const hasPush = (await getSubscriptionsByWorkerName(worker.name)).length > 0;
           if (hasPush) {
             await sendPushToWorker(worker.name, `${worker.name}님, 지금 출근 버튼을 눌러주세요!`, `${slot.toUpperCase()}타임 ${startTime} 출근 시간입니다.`);
+            await createActivityLog({ workerId: worker.id, workerName: worker.name, actionType: "push_notification", description: `출근 시간 푸시 알림 발송 (${slot.toUpperCase()}타임 ${startTime})` }).catch(() => {});
           } else if (worker.email) {
             const result = await sendCheckInNowEmail({
               to: worker.email,
@@ -230,6 +232,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
           const hasPush = (await getSubscriptionsByWorkerName(worker.name)).length > 0;
           if (hasPush) {
             await sendPushToWorker(worker.name, `${worker.name}님, 10분 후 퇴근이에요!`, `${slot.toUpperCase()}타임 ${endTime} 퇴근 예정입니다.`);
+            await createActivityLog({ workerId: worker.id, workerName: worker.name, actionType: "push_notification", description: `퇴근 10분 전 푸시 알림 발송 (${slot.toUpperCase()}타임 ${endTime})` }).catch(() => {});
           } else if (worker.email) {
             const result = await sendCheckOutNowEmail({
               to: worker.email,
@@ -259,6 +262,7 @@ export async function checkAndSendShiftReminders(): Promise<void> {
           const hasPushNow = (await getSubscriptionsByWorkerName(worker.name)).length > 0;
           if (hasPushNow) {
             await sendPushToWorker(worker.name, pushTitle, pushBody);
+            await createActivityLog({ workerId: worker.id, workerName: worker.name, actionType: "push_notification", description: `퇴근 시간 푸시 알림 발송 (${slot.toUpperCase()}타임 ${endTime})` }).catch(() => {});
           } else if (worker.email) {
             const result = await sendCheckOutNowEmail({
               to: worker.email,
@@ -357,11 +361,17 @@ export async function checkAndSendPaydayEveEmails(): Promise<void> {
           await createActivityLog({
             workerId: worker.id,
             workerName: worker.name,
-            actionType: "email_notification",
+            actionType: "push_notification",
             description: `급여일 전날 푸시 알림 발송 (${worker.payDay}일 급여일 / 예상 ${totalPay.toLocaleString()}원)`,
           }).catch(() => {});
         } catch (pushErr: any) {
           console.error(`[EmailScheduler] ❌ Payday eve push failed for ${worker.name}: ${pushErr.message}`);
+          await createActivityLog({
+            workerId: worker.id,
+            workerName: worker.name,
+            actionType: "notification_failed",
+            description: `급여일 전날 푸시 알림 발송 실패: ${pushErr.message}`,
+          }).catch(() => {});
         }
       } else {
         // 푸시 구독 없으면 이메일 fallback
@@ -393,7 +403,7 @@ export async function checkAndSendPaydayEveEmails(): Promise<void> {
           await createActivityLog({
             workerId: worker.id,
             workerName: worker.name,
-            actionType: "email_notification",
+            actionType: "notification_failed",
             description: `급여일 전날 이메일 발송 실패: ${result.error ?? "알 수 없는 오류"}`,
           }).catch(() => {});
         }

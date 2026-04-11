@@ -183,13 +183,20 @@ export const appRouter = router({
           startTime: input.startTime,
           actualStartTime: input.actualStartTime,
         });
-        // 출근 알림 전송 (workerName은 result에서 가져옴)
+        // 출근 알림 전송 + activity log
         if (result?.workerName) {
           const timeSlotLabel = input.timeSlot.toUpperCase() + "타임";
           await notifyOwner({
             title: `${result.workerName}님이 출근했습니다`,
             content: `📍 ${input.scheduleDate} ${timeSlotLabel}\n⏰ 실제 출근: ${input.actualStartTime} → 기록: ${input.startTime}`,
-          }).catch(() => {}); // 알림 실패해도 출근 처리는 성공
+          }).catch(() => {});
+          await createActivityLog({
+            workerId: result.workerId ?? null,
+            workerName: result.workerName,
+            actionType: "start_time_update",
+            description: `${result.workerName}님이 ${input.scheduleDate} 출근 버튼을 눌렀습니다. 실제 시간 ${input.actualStartTime} → ${input.startTime}으로 기록`,
+            metadata: JSON.stringify({ scheduleDate: input.scheduleDate, timeSlot: input.timeSlot, actualStartTime: input.actualStartTime, displayStartTime: input.startTime }),
+          }).catch(() => {});
         }
         return result;
       }),
@@ -228,6 +235,13 @@ export const appRouter = router({
           await notifyOwner({
             title: `${result.workerName}님이 퇴근했습니다`,
             content: `🏁 ${input.scheduleDate} ${input.timeSlot.toUpperCase()}타임\n⏰ 실제 퇴근: ${input.actualEndTime} → 기록: ${input.endTime}`,
+          }).catch(() => {});
+          await createActivityLog({
+            workerId: result.workerId ?? null,
+            workerName: result.workerName,
+            actionType: "end_time_update",
+            description: `${result.workerName}님이 ${input.scheduleDate} 퇴근 버튼을 눌렀습니다. 실제 시간 ${input.actualEndTime} → ${input.endTime}으로 기록`,
+            metadata: JSON.stringify({ scheduleDate: input.scheduleDate, timeSlot: input.timeSlot, actualEndTime: input.actualEndTime, displayEndTime: input.endTime }),
           }).catch(() => {});
         }
         return result;
@@ -459,6 +473,8 @@ export const appRouter = router({
           "worker_updated",
           "worker_deleted",
           "email_notification",
+          "push_notification",
+          "notification_failed",
         ]),
         description: z.string(),
         metadata: z.string().optional(),
@@ -486,6 +502,8 @@ export const appRouter = router({
           "worker_updated",
           "worker_deleted",
           "email_notification",
+          "push_notification",
+          "notification_failed",
         ]).optional(),
         startDate: z.string().optional(),
         endDate: z.string().optional(),
