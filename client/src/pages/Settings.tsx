@@ -445,11 +445,11 @@ export default function Settings() {
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogContent className="sm:max-w-md bg-card border-border max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{editingWorker ? "알바생 수정" : "알바생 추가"}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2 overflow-y-auto flex-1">
               <div className="space-y-2">
                 <Label>이름</Label>
                 <Input
