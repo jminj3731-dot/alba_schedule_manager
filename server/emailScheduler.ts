@@ -256,7 +256,23 @@ export async function checkAndSendShiftReminders(): Promise<void> {
             : `${worker.name}님, 출퇴근 버튼을 누르지 않았어요!`;
           const pushBody = `원활한 기록을 위해 ${slot.toUpperCase()}타임 출퇴근 버튼을 눌러주세요.`;
           console.log(`[EmailScheduler] Sending checkout-now nudge to ${worker.name} (checkedIn=${hasCheckedIn})`);
-          await sendPushToWorker(worker.name, pushTitle, pushBody);
+          const hasPushNow = (await getSubscriptionsByWorkerName(worker.name)).length > 0;
+          if (hasPushNow) {
+            await sendPushToWorker(worker.name, pushTitle, pushBody);
+          } else if (worker.email) {
+            const result = await sendCheckOutNowEmail({
+              to: worker.email,
+              workerName: worker.name,
+              scheduleDate: today,
+              timeSlot: slot.toUpperCase() as "A" | "B" | "C",
+              startTime,
+              endTime,
+            });
+            if (result.success) {
+              console.log(`[EmailScheduler] ✅ Checkout-now email sent to ${worker.name}`);
+              await createActivityLog({ workerId: worker.id, workerName: worker.name, actionType: "email_notification", description: `퇴근 시간 알림 이메일 발송 (${slot.toUpperCase()}타임 ${endTime})` }).catch(() => {});
+            }
+          }
           await markSent(keyCheckoutNow, today);
         }
       }
