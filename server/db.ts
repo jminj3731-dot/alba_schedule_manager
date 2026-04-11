@@ -77,9 +77,6 @@ async function ensureTables(pool: any) {
         CONSTRAINT \`announcements_id\` PRIMARY KEY(\`id\`)
       )
     `);
-    // workers 테이블에 목표 근무일수 컬럼 추가 (없으면)
-    await pool.execute(`ALTER TABLE \`workers\` ADD COLUMN \`targetDaysMin\` int DEFAULT 3`).catch(() => {});
-    await pool.execute(`ALTER TABLE \`workers\` ADD COLUMN \`targetDaysMax\` int DEFAULT 4`).catch(() => {});
   } catch (err: any) {
     console.warn('[Database] ensureTables warning:', err.message);
   }
