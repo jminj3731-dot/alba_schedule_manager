@@ -477,7 +477,7 @@ export default function Home() {
                 <Clock className="w-10 h-10 text-primary" />
               </div>
               <h1 className="text-2xl font-bold tracking-tight">
-                <span className="text-primary">ALBA</span> Schedule
+                <span className="text-primary">대한한우</span> 스케줄
               </h1>
               <p className="text-sm text-muted-foreground">
                 이름을 입력하여 내 스케줄을 확인하세요
@@ -533,14 +533,10 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="container flex items-center justify-between h-14">
           <h1 className="text-lg font-bold tracking-tight">
-            <span className="text-primary">ALBA</span>
-            <span className="ml-1">Schedule</span>
+            <span className="text-primary">대한한우</span>
+            <span className="ml-1">스케줄</span>
           </h1>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="border-primary/40 text-primary text-xs gap-1">
-              <User className="w-3 h-3" />
-              {loggedInName}
-            </Badge>
             {pushSupported && (
               <Button
                 variant="ghost"
@@ -903,25 +899,28 @@ export default function Home() {
                       );
 
                       return (
-                        <div key={d.dateStr} className={`flex items-center gap-3 py-2.5 ${today ? "text-foreground" : "text-foreground/80"}`}>
-                          <span className={`text-sm font-semibold w-14 shrink-0 ${today ? "text-primary" : "text-muted-foreground"}`}>
-                            {d.dayName} {d.date.getDate()}일
+                        <div key={d.dateStr} className={`flex items-center gap-2 py-2.5 ${today ? "text-foreground" : "text-foreground/80"}`}>
+                          <span className={`shrink-0 w-10 ${today ? "text-primary" : "text-muted-foreground"}`}>
+                            <span className="text-sm font-semibold">{d.dayName}</span>
+                            <span className="text-xs font-medium"> {d.date.getDate()}일</span>
                           </span>
-                          <Badge className="bg-primary/20 text-primary border-primary/30 text-xs px-2 py-0.5">
+                          <Badge className="bg-primary/20 text-primary border-primary/30 text-xs px-2 py-0.5 shrink-0">
                             {mySlot.label}타임
                           </Badge>
-                          <span className="text-sm text-foreground/60 flex-1">{mySlot.time}</span>
-                          {checkedInTime && checkedOutTime ? (
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-muted-foreground/50 tabular-nums">{checkedInTime}~{checkedOutTime}</span>
-                              <Badge className="bg-green-500/15 text-green-500 border-green-500/30 text-[10px] px-1.5 py-0 h-4">기록완료</Badge>
-                            </div>
-                          ) : checkedInTime ? (
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-green-500 tabular-nums">{checkedInTime}</span>
-                              <Badge className="bg-yellow-500/15 text-yellow-500 border-yellow-500/30 text-[10px] px-1.5 py-0 h-4">출근완료</Badge>
-                            </div>
-                          ) : null}
+                          <span className="text-xs text-foreground/60 shrink-0">{mySlot.time}</span>
+                          <div className="flex-1 flex items-center justify-end gap-1 min-w-0">
+                            {checkedInTime && checkedOutTime ? (
+                              <>
+                                <span className="text-[10px] text-muted-foreground/50 tabular-nums">{checkedInTime}~{checkedOutTime}</span>
+                                <Badge className="bg-green-500/15 text-green-500 border-green-500/30 text-[10px] px-1.5 py-0 h-4 shrink-0">기록완료</Badge>
+                              </>
+                            ) : checkedInTime ? (
+                              <>
+                                <span className="text-[10px] text-green-500 tabular-nums">{checkedInTime}</span>
+                                <Badge className="bg-yellow-500/15 text-yellow-500 border-yellow-500/30 text-[10px] px-1.5 py-0 h-4 shrink-0">출근완료</Badge>
+                              </>
+                            ) : null}
+                          </div>
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground/30 hover:text-primary transition-colors">

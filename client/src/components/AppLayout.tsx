@@ -89,8 +89,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="container flex items-center justify-between h-14">
           <Link href="/">
             <h1 className="text-lg font-bold tracking-tight cursor-pointer">
-              <span className="text-primary">ALBA</span>
-              <span className="text-foreground ml-1">Schedule</span>
+              <span className="text-primary">대한한우</span>
+              <span className="text-foreground ml-1">스케줄</span>
             </h1>
           </Link>
           {/* Desktop nav */}
