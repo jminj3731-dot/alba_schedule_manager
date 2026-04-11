@@ -1,3 +1,1 @@
-ALTER TABLE `activityLogs` MODIFY COLUMN `actionType` enum('end_time_update','start_time_update','preferred_days_update','fixed_days_off_update','worker_created','worker_updated','worker_deleted','attendance_correction','correction_skipped','email_notification','push_notification','notification_failed') NOT NULL;--> statement-breakpoint
-ALTER TABLE `workers` ADD COLUMN IF NOT EXISTS `targetDaysMin` int DEFAULT 3;--> statement-breakpoint
-ALTER TABLE `workers` ADD COLUMN IF NOT EXISTS `targetDaysMax` int DEFAULT 4;
+ALTER TABLE `activityLogs` MODIFY COLUMN `actionType` enum('end_time_update','start_time_update','preferred_days_update','fixed_days_off_update','worker_created','worker_updated','worker_deleted','attendance_correction','correction_skipped','email_notification','push_notification','notification_failed') NOT NULL;
