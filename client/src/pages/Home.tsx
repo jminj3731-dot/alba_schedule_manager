@@ -169,6 +169,7 @@ export default function Home() {
   const [salaryMonthOffset, setSalaryMonthOffset] = useState(0);
   const [editingPayDay, setEditingPayDay] = useState(false);
   const [payDayInput, setPayDayInput] = useState("");
+  const [hourlyWageInput, setHourlyWageInput] = useState("");
   const [, navigate] = useLocation();
   // GPS 위치 상태
   const [locationChecking, setLocationChecking] = useState(false);
@@ -1276,39 +1277,70 @@ export default function Home() {
 
               return (
                 <>
-                  {/* 급여일 설정 */}
-                  <div className="flex items-center justify-between mb-3 px-1 max-w-sm mx-auto">
-                    <span className="text-xs text-muted-foreground">
-                      급여일: <span className="text-foreground font-medium">매월 {salaryMonthRange.payDay}일</span>
-                    </span>
+                  {/* 급여일 + 시급 설정 */}
+                  <div className="max-w-sm mx-auto mb-3">
                     {editingPayDay ? (
-                      <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          min={1}
-                          max={31}
-                          value={payDayInput}
-                          onChange={(e) => setPayDayInput(e.target.value)}
-                          className="h-6 w-14 text-xs px-2 bg-secondary/50"
-                        />
-                        <button
-                          className="text-xs text-primary font-medium"
-                          onClick={() => {
-                            const d = parseInt(payDayInput);
-                            if (d >= 1 && d <= 31 && currentWorker) {
-                              updatePayDayMutation.mutate({ id: currentWorker.id, payDay: d });
-                            }
-                          }}
-                        >저장</button>
-                        <button className="text-xs text-muted-foreground" onClick={() => setEditingPayDay(false)}>취소</button>
+                      <div className="bg-secondary/30 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-12 shrink-0">급여일</span>
+                          <Input
+                            type="number" min={1} max={31}
+                            value={payDayInput}
+                            onChange={(e) => setPayDayInput(e.target.value)}
+                            className="h-7 text-xs px-2 bg-secondary/50 flex-1"
+                            placeholder="1~31"
+                          />
+                          <span className="text-xs text-muted-foreground">일</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-12 shrink-0">시급</span>
+                          <Input
+                            type="number" min={0}
+                            value={hourlyWageInput}
+                            onChange={(e) => setHourlyWageInput(e.target.value)}
+                            className="h-7 text-xs px-2 bg-secondary/50 flex-1"
+                            placeholder="시급 입력"
+                          />
+                          <span className="text-xs text-muted-foreground">원</span>
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            className="flex-1 text-xs py-1.5 rounded-lg bg-primary text-primary-foreground font-medium"
+                            onClick={() => {
+                              const d = parseInt(payDayInput);
+                              const w = parseInt(hourlyWageInput);
+                              if (currentWorker) {
+                                updatePayDayMutation.mutate({
+                                  id: currentWorker.id,
+                                  ...(d >= 1 && d <= 31 ? { payDay: d } : {}),
+                                  ...(w > 0 ? { hourlyWage: w } : {}),
+                                });
+                              }
+                            }}
+                          >저장</button>
+                          <button
+                            className="flex-1 text-xs py-1.5 rounded-lg bg-secondary text-muted-foreground"
+                            onClick={() => setEditingPayDay(false)}
+                          >취소</button>
+                        </div>
                       </div>
                     ) : (
-                      <button
-                        className="text-xs text-primary"
-                        onClick={() => { setPayDayInput(String(salaryMonthRange.payDay)); setEditingPayDay(true); }}
-                      >
-                        수정
-                      </button>
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs text-muted-foreground">
+                          급여일 <span className="text-foreground font-medium">매월 {salaryMonthRange.payDay}일</span>
+                          {currentWorker?.hourlyWage && (
+                            <span className="ml-2">· 시급 <span className="text-foreground font-medium">{currentWorker.hourlyWage.toLocaleString()}원</span></span>
+                          )}
+                        </span>
+                        <button
+                          className="text-xs text-primary"
+                          onClick={() => {
+                            setPayDayInput(String(salaryMonthRange.payDay));
+                            setHourlyWageInput(String(currentWorker?.hourlyWage ?? ""));
+                            setEditingPayDay(true);
+                          }}
+                        >수정</button>
+                      </div>
                     )}
                   </div>
 
