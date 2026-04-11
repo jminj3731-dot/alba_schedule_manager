@@ -354,12 +354,28 @@ export default function Home() {
   });
 
   const updatePayDayMutation = trpc.workers.update.useMutation({
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       utils.workers.list.invalidate();
-      toast.success("급여일이 저장되었습니다.");
+      toast.success("저장되었습니다.");
       setEditingPayDay(false);
+      const worker = workers.find((w) => w.id === variables.id);
+      if (!worker) return;
+      const changes: string[] = [];
+      if (variables.payDay !== undefined && variables.payDay !== worker.payDay)
+        changes.push(`급여일 ${worker.payDay ?? "미설정"}일 → ${variables.payDay}일`);
+      if (variables.hourlyWage !== undefined && variables.hourlyWage !== worker.hourlyWage)
+        changes.push(`시급 ${worker.hourlyWage?.toLocaleString() ?? "미설정"}원 → ${variables.hourlyWage?.toLocaleString()}원`);
+      if (changes.length > 0) {
+        createActivityLogMutation.mutate({
+          workerId: worker.id,
+          workerName: worker.name,
+          actionType: "worker_updated",
+          description: `${worker.name}님 정보 수정: ${changes.join(", ")}`,
+          metadata: JSON.stringify(variables),
+        });
+      }
     },
-    onError: () => toast.error("급여일 저장에 실패했습니다."),
+    onError: () => toast.error("저장에 실패했습니다."),
   });
 
   const correctTimeMutation = trpc.attendanceCorrections.create.useMutation({

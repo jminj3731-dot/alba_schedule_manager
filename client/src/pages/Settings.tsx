@@ -138,11 +138,31 @@ export default function Settings() {
           });
         }
       }
+      // 변경된 필드 목록 구성
+      const changes: string[] = [];
+      const skillLabel = (s?: string) => s === "main" ? "메인" : s === "sub" ? "서브" : s === "trainee" ? "수습" : s ?? "";
+      if (variables.skillLevel !== undefined && variables.skillLevel !== worker?.skillLevel)
+        changes.push(`숙련도 ${skillLabel(worker?.skillLevel)} → ${skillLabel(variables.skillLevel)}`);
+      if (variables.hourlyWage !== undefined && variables.hourlyWage !== worker?.hourlyWage)
+        changes.push(`시급 ${worker?.hourlyWage?.toLocaleString() ?? "미설정"}원 → ${variables.hourlyWage?.toLocaleString() ?? "미설정"}원`);
+      if (variables.payDay !== undefined && variables.payDay !== worker?.payDay)
+        changes.push(`급여일 ${worker?.payDay ?? "미설정"}일 → ${variables.payDay ?? "미설정"}일`);
+      if (variables.defaultStartTime !== undefined && variables.defaultStartTime !== worker?.defaultStartTime)
+        changes.push(`기본출근 ${worker?.defaultStartTime ?? "미설정"} → ${variables.defaultStartTime ?? "미설정"}`);
+      if (variables.defaultEndTime !== undefined && variables.defaultEndTime !== worker?.defaultEndTime)
+        changes.push(`기본퇴근 ${worker?.defaultEndTime ?? "미설정"} → ${variables.defaultEndTime ?? "미설정"}`);
+      if (variables.targetDaysMin !== undefined && (variables.targetDaysMin !== worker?.targetDaysMin || variables.targetDaysMax !== worker?.targetDaysMax))
+        changes.push(`목표근무 ${worker?.targetDaysMin ?? "-"}~${worker?.targetDaysMax ?? "-"}일 → ${variables.targetDaysMin ?? "-"}~${variables.targetDaysMax ?? "-"}일`);
+      if (variables.email !== undefined && variables.email !== worker?.email)
+        changes.push(`이메일 ${worker?.email ?? "없음"} → ${variables.email ?? "없음"}`);
+      const description = changes.length > 0
+        ? `${workerName}님 정보 수정: ${changes.join(", ")}`
+        : `${workerName}님의 정보가 수정되었습니다.`;
       createActivityLogMutation.mutate({
         workerId: variables.id,
         workerName,
         actionType: "worker_updated",
-        description: `${workerName}님의 정보가 수정되었습니다.`,
+        description,
         metadata: JSON.stringify(variables),
       });
       resetForm();
