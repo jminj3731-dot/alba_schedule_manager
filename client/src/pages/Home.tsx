@@ -905,9 +905,9 @@ export default function Home() {
                             <span className="text-xs font-medium"> {d.date.getDate()}일</span>
                           </span>
                           <Badge className="bg-primary/20 text-primary border-primary/30 text-xs px-2 py-0.5 shrink-0">
-                            {mySlot.label}타임
+                            {mySlot.label}
                           </Badge>
-                          <span className="text-xs text-foreground/60 shrink-0">{mySlot.time}</span>
+                          <span className="text-xs font-bold text-foreground/80 shrink-0">{mySlot.time}</span>
                           <div className="flex-1 flex items-center justify-end gap-1 min-w-0">
                             {checkedInTime && checkedOutTime ? (
                               <>
