@@ -77,14 +77,17 @@ interface ScheduleRow {
   bTimeWorkerId: number | null;
   cTimeWorkerId: number | null;
   dTimeWorkerId?: number | null;
+  eTimeWorkerId?: number | null;
   aTimeStartTime?: string | null;
   bTimeStartTime?: string | null;
   cTimeStartTime?: string | null;
   dTimeStartTime?: string | null;
+  eTimeStartTime?: string | null;
   aTimeEndTime?: string | null;
   bTimeEndTime?: string | null;
   cTimeEndTime?: string | null;
   dTimeEndTime?: string | null;
+  eTimeEndTime?: string | null;
 }
 
 function validateRow(row: ScheduleRow, workers: any[]): { type: string; message: string }[] {
@@ -130,6 +133,7 @@ export default function Master() {
   const [autoAssignDialogOpen, setAutoAssignDialogOpen] = useState(false);
   const [expandedCSlots, setExpandedCSlots] = useState<Set<string>>(new Set());
   const [expandedDSlots, setExpandedDSlots] = useState<Set<string>>(new Set());
+  const [expandedESlots, setExpandedESlots] = useState<Set<string>>(new Set());
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
   const startDate = weekDates[0].dateStr;
@@ -212,11 +216,14 @@ export default function Master() {
             bTimeStartTime: (existing as any).bTimeStartTime,
             cTimeStartTime: (existing as any).cTimeStartTime,
             dTimeStartTime: (existing as any).dTimeStartTime,
+            eTimeStartTime: (existing as any).eTimeStartTime,
             aTimeEndTime: (existing as any).aTimeEndTime,
             bTimeEndTime: (existing as any).bTimeEndTime,
             cTimeEndTime: (existing as any).cTimeEndTime,
             dTimeEndTime: (existing as any).dTimeEndTime,
+            eTimeEndTime: (existing as any).eTimeEndTime,
             dTimeWorkerId: (existing as any).dTimeWorkerId ?? null,
+            eTimeWorkerId: (existing as any).eTimeWorkerId ?? null,
           }
         : {
             scheduleDate: d.dateStr,
@@ -226,12 +233,13 @@ export default function Master() {
             bTimeWorkerId: null,
             cTimeWorkerId: null,
             dTimeWorkerId: null,
+            eTimeWorkerId: null,
           };
     }
     return map;
   }, [weekDates, existingSchedules]);
 
-  function saveSchedule(dateStr: string, updates: Partial<ScheduleRow>, workerDefaultTimes?: { slot: "a" | "b" | "c" | "d"; startTime?: string; endTime?: string }) {
+  function saveSchedule(dateStr: string, updates: Partial<ScheduleRow>, workerDefaultTimes?: { slot: "a" | "b" | "c" | "d" | "e"; startTime?: string; endTime?: string }) {
     const current = scheduleMap[dateStr];
     if (!current) return;
     const row = { ...current, ...updates };
@@ -243,6 +251,7 @@ export default function Master() {
       bTimeWorkerId: row.bTimeWorkerId,
       cTimeWorkerId: row.cTimeWorkerId,
       dTimeWorkerId: row.dTimeWorkerId ?? null,
+      eTimeWorkerId: row.eTimeWorkerId ?? null,
     });
     // 알바생 기본 시간이 있으면 자동 세팅
     if (workerDefaultTimes && (workerDefaultTimes.startTime || workerDefaultTimes.endTime)) {
@@ -255,7 +264,7 @@ export default function Master() {
     }
   }
 
-  function handleUpdateTime(dateStr: string, timeSlot: "a" | "b" | "c" | "d", startTime?: string, endTime?: string) {
+  function handleUpdateTime(dateStr: string, timeSlot: "a" | "b" | "c" | "d" | "e", startTime?: string, endTime?: string) {
     updateTimeMutation.mutate({ scheduleDate: dateStr, timeSlot, startTime, endTime });
   }
 
@@ -329,7 +338,7 @@ export default function Master() {
               <thead>
                 <tr className="border-b border-border/30">
                   <th className="w-24 p-2 text-left text-muted-foreground/50 font-normal"></th>
-                  {(["a", "b", "c", "d"] as const).map((slot) => (
+                  {(["a", "b", "c", "d", "e"] as const).map((slot) => (
                     <th key={slot} className="p-1.5 text-center min-w-[44px] max-w-[44px]">
                       <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${
                         slot === "a" ? "bg-primary/30 text-primary" : "bg-secondary text-secondary-foreground"
@@ -367,8 +376,8 @@ export default function Master() {
                           />
                         </div>
                       </th>
-                      {/* A/B/C/D 슬롯 셀 */}
-                      {(["a", "b", "c", "d"] as const).map((slot) => {
+                      {/* A/B/C/D/E 슬롯 셀 */}
+                      {(["a", "b", "c", "d", "e"] as const).map((slot) => {
                         const slotLabel = slot.toUpperCase();
                         const workerKey = `${slot}TimeWorkerId` as keyof ScheduleRow;
                         const startKey = `${slot}TimeStartTime` as keyof ScheduleRow;
@@ -382,20 +391,23 @@ export default function Master() {
                         const hasSchedule = !!existingSchedules.find((s) => s.scheduleDate === d.dateStr);
                         const isViolation = isDayOffViolation(workerId, d.dayName, workers);
 
-                        // C/D 타임: 평일은 배정 없고 미확장이면 + 버튼
+                        // C/D/E 타임: 평일은 배정 없고 미확장이면 + 버튼
                         const showCAdd = slot === "c" && !isWeekend && !workerId && !expandedCSlots.has(d.dateStr);
                         const showDAdd = slot === "d" && !workerId && !expandedDSlots.has(d.dateStr);
+                        const showEAdd = slot === "e" && !workerId && !expandedESlots.has(d.dateStr);
 
                         if (!isOperating) {
                           return <td key={slot} className="p-1.5 text-center text-muted-foreground/20 text-sm">-</td>;
                         }
 
-                        if (showCAdd || showDAdd) {
+                        if (showCAdd || showDAdd || showEAdd) {
                           return (
                             <td key={slot} className="p-1.5 text-center">
                               <button
                                 onClick={() => slot === "c"
                                   ? setExpandedCSlots((prev) => new Set(prev).add(d.dateStr))
+                                  : slot === "e"
+                                  ? setExpandedESlots((prev) => new Set(prev).add(d.dateStr))
                                   : setExpandedDSlots((prev) => new Set(prev).add(d.dateStr))
                                 }
                                 className="w-full flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground border border-dashed border-border/20 hover:border-border/50 rounded py-2.5 transition-colors"
@@ -432,6 +444,7 @@ export default function Master() {
                                     if (!id) {
                                       if (slot === "c" && !isWeekend) setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
                                       if (slot === "d") setExpandedDSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                                      if (slot === "e") setExpandedESlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
                                     }
                                   }}
                                 >
@@ -488,13 +501,14 @@ export default function Master() {
                                     </PopoverContent>
                                   </Popover>
                                 </div>
-                                {/* C/D 제거 버튼 */}
-                                {((slot === "c" && !isWeekend) || slot === "d") && workerId && (
+                                {/* C/D/E 제거 버튼 */}
+                                {((slot === "c" && !isWeekend) || slot === "d" || slot === "e") && workerId && (
                                   <button
                                     onClick={() => {
                                       saveSchedule(d.dateStr, { [workerKey]: null } as any);
                                       if (slot === "c") setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
                                       if (slot === "d") setExpandedDSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
+                                      if (slot === "e") setExpandedESlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
                                     }}
                                     className="mt-1.5 w-full text-[10px] text-muted-foreground/50 hover:text-destructive flex items-center justify-center gap-1 transition-colors"
                                   >

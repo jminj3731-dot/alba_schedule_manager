@@ -77,6 +77,18 @@ async function ensureTables(pool: any) {
         CONSTRAINT \`announcements_id\` PRIMARY KEY(\`id\`)
       )
     `);
+    // E슬롯 컬럼 추가 (이미 존재하면 무시)
+    const eColumns = [
+      "eTimeWorkerId int",
+      "eTimeStartTime varchar(10)",
+      "eTimeEndTime varchar(10)",
+      "eTimeActualStartTime varchar(10)",
+      "eTimeActualEndTime varchar(10)",
+    ];
+    for (const col of eColumns) {
+      const [colName] = col.split(" ");
+      await pool.execute(`ALTER TABLE \`schedules\` ADD COLUMN IF NOT EXISTS \`${colName}\` ${col.slice(colName.length + 1)}`).catch(() => {});
+    }
   } catch (err: any) {
     console.warn('[Database] ensureTables warning:', err.message);
   }
@@ -262,6 +274,7 @@ export async function upsertSchedule(data: {
   bTimeWorkerId: number | null;
   cTimeWorkerId: number | null;
   dTimeWorkerId?: number | null;
+  eTimeWorkerId?: number | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -277,6 +290,7 @@ export async function upsertSchedule(data: {
       cTimeWorkerId: data.cTimeWorkerId,
     };
     if (data.dTimeWorkerId !== undefined) updateFields.dTimeWorkerId = data.dTimeWorkerId;
+    if (data.eTimeWorkerId !== undefined) updateFields.eTimeWorkerId = data.eTimeWorkerId;
     // A타임: 담당자가 있는데 시간이 없으면 기본값 채우기
     if (data.aTimeWorkerId && !existing.aTimeStartTime) {
       updateFields.aTimeStartTime = DEFAULT_TIMES.a.start;
@@ -315,6 +329,17 @@ export async function upsertSchedule(data: {
         updateFields.dTimeEndTime = null;
       }
     }
+    // E타임
+    if (data.eTimeWorkerId !== undefined) {
+      if (data.eTimeWorkerId && !(existing as any).eTimeStartTime) {
+        updateFields.eTimeStartTime = DEFAULT_TIMES.c.start;
+        updateFields.eTimeEndTime = DEFAULT_TIMES.c.end;
+      }
+      if (!data.eTimeWorkerId) {
+        updateFields.eTimeStartTime = null;
+        updateFields.eTimeEndTime = null;
+      }
+    }
     await db.update(schedules).set(updateFields as any).where(eq(schedules.id, existing.id));
     return { id: existing.id };
   } else {
@@ -327,6 +352,7 @@ export async function upsertSchedule(data: {
       bTimeWorkerId: data.bTimeWorkerId,
       cTimeWorkerId: data.cTimeWorkerId,
       dTimeWorkerId: data.dTimeWorkerId ?? null,
+      eTimeWorkerId: data.eTimeWorkerId ?? null,
       aTimeStartTime: data.aTimeWorkerId ? DEFAULT_TIMES.a.start : null,
       aTimeEndTime: data.aTimeWorkerId ? DEFAULT_TIMES.a.end : null,
       bTimeStartTime: data.bTimeWorkerId ? DEFAULT_TIMES.b.start : null,
@@ -335,6 +361,8 @@ export async function upsertSchedule(data: {
       cTimeEndTime: data.cTimeWorkerId ? DEFAULT_TIMES.c.end : null,
       dTimeStartTime: data.dTimeWorkerId ? DEFAULT_TIMES.c.start : null,
       dTimeEndTime: data.dTimeWorkerId ? DEFAULT_TIMES.c.end : null,
+      eTimeStartTime: data.eTimeWorkerId ? DEFAULT_TIMES.c.start : null,
+      eTimeEndTime: data.eTimeWorkerId ? DEFAULT_TIMES.c.end : null,
     } as any);
     return { id: result[0].insertId };
   }
@@ -342,7 +370,7 @@ export async function upsertSchedule(data: {
 
 export async function updateScheduleEndTime(data: {
   scheduleDate: string;
-  timeSlot: "a" | "b" | "c" | "d";
+  timeSlot: "a" | "b" | "c" | "d" | "e";
   endTime: string;
   actualEndTime?: string;
 }) {
@@ -355,6 +383,7 @@ export async function updateScheduleEndTime(data: {
     data.timeSlot === "a" ? { aTimeEndTime: data.endTime, aTimeActualEndTime: data.actualEndTime || data.endTime } :
     data.timeSlot === "b" ? { bTimeEndTime: data.endTime, bTimeActualEndTime: data.actualEndTime || data.endTime } :
     data.timeSlot === "d" ? { dTimeEndTime: data.endTime, dTimeActualEndTime: data.actualEndTime || data.endTime } as any :
+    data.timeSlot === "e" ? { eTimeEndTime: data.endTime, eTimeActualEndTime: data.actualEndTime || data.endTime } as any :
     { cTimeEndTime: data.endTime, cTimeActualEndTime: data.actualEndTime || data.endTime };
 
   await db.update(schedules).set(updateField).where(eq(schedules.id, existing.id));
@@ -368,6 +397,7 @@ export async function updateScheduleEndTime(data: {
       data.timeSlot === "a" ? existing.aTimeWorkerId
       : data.timeSlot === "b" ? existing.bTimeWorkerId
       : data.timeSlot === "d" ? (existing as any).dTimeWorkerId
+      : data.timeSlot === "e" ? (existing as any).eTimeWorkerId
       : existing.cTimeWorkerId;
     if (resolvedWorkerId) {
       const w = await getWorkerById(resolvedWorkerId);
@@ -378,6 +408,7 @@ export async function updateScheduleEndTime(data: {
       data.timeSlot === "a" ? existing.aTimeEndTime
       : data.timeSlot === "b" ? existing.bTimeEndTime
       : data.timeSlot === "d" ? (existing as any).dTimeEndTime
+      : data.timeSlot === "e" ? (existing as any).eTimeEndTime
       : existing.cTimeEndTime;
   } catch {}
 
@@ -386,7 +417,7 @@ export async function updateScheduleEndTime(data: {
 
 export async function updateScheduleTime(data: {
   scheduleDate: string;
-  timeSlot: "a" | "b" | "c" | "d";
+  timeSlot: "a" | "b" | "c" | "d" | "e";
   startTime?: string;
   endTime?: string;
   actualStartTime?: string;
@@ -401,18 +432,21 @@ export async function updateScheduleTime(data: {
     if (data.timeSlot === "a") updateField.aTimeStartTime = data.startTime;
     else if (data.timeSlot === "b") updateField.bTimeStartTime = data.startTime;
     else if (data.timeSlot === "c") updateField.cTimeStartTime = data.startTime;
+    else if (data.timeSlot === "e") updateField.eTimeStartTime = data.startTime;
     else updateField.dTimeStartTime = data.startTime;
   }
   if (data.endTime !== undefined) {
     if (data.timeSlot === "a") updateField.aTimeEndTime = data.endTime;
     else if (data.timeSlot === "b") updateField.bTimeEndTime = data.endTime;
     else if (data.timeSlot === "c") updateField.cTimeEndTime = data.endTime;
+    else if (data.timeSlot === "e") updateField.eTimeEndTime = data.endTime;
     else updateField.dTimeEndTime = data.endTime;
   }
   if (data.actualStartTime !== undefined) {
     if (data.timeSlot === "a") updateField.aTimeActualStartTime = data.actualStartTime;
     else if (data.timeSlot === "b") updateField.bTimeActualStartTime = data.actualStartTime;
     else if (data.timeSlot === "c") updateField.cTimeActualStartTime = data.actualStartTime;
+    else if (data.timeSlot === "e") updateField.eTimeActualStartTime = data.actualStartTime;
     else updateField.dTimeActualStartTime = data.actualStartTime;
   }
 
@@ -426,6 +460,7 @@ export async function updateScheduleTime(data: {
       data.timeSlot === "a" ? existing.aTimeWorkerId
       : data.timeSlot === "b" ? existing.bTimeWorkerId
       : data.timeSlot === "c" ? existing.cTimeWorkerId
+      : data.timeSlot === "e" ? (existing as any).eTimeWorkerId
       : (existing as any).dTimeWorkerId;
     if (resolvedWorkerId) {
       const w = await getWorkerById(resolvedWorkerId);
@@ -455,7 +490,7 @@ export async function getSchedulesForWorker(workerId: number, startDate: string,
       eq(schedules.isOperating, true)
     ));
   return allSchedules.filter(s =>
-    s.aTimeWorkerId === workerId || s.bTimeWorkerId === workerId || s.cTimeWorkerId === workerId || (s as any).dTimeWorkerId === workerId
+    s.aTimeWorkerId === workerId || s.bTimeWorkerId === workerId || s.cTimeWorkerId === workerId || (s as any).dTimeWorkerId === workerId || (s as any).eTimeWorkerId === workerId
   );
 }
 
@@ -472,7 +507,7 @@ export async function getWeeklyWorkerCounts(startDate: string, endDate: string) 
 
   const counts: Record<number, number> = {};
   for (const s of allSchedules) {
-    const workerIds = [s.aTimeWorkerId, s.bTimeWorkerId, s.cTimeWorkerId, (s as any).dTimeWorkerId].filter(Boolean) as number[];
+    const workerIds = [s.aTimeWorkerId, s.bTimeWorkerId, s.cTimeWorkerId, (s as any).dTimeWorkerId, (s as any).eTimeWorkerId].filter(Boolean) as number[];
     for (const wId of workerIds) {
       counts[wId] = (counts[wId] || 0) + 1;
     }
@@ -565,11 +600,12 @@ async function buildStats(allWorkers: any[], rangeSchedules: any[]): Promise<Mon
   }));
 
   for (const s of rangeSchedules) {
-    const slots: { slot: "a" | "b" | "c" | "d"; workerId: number | null; start: string; end: string }[] = [
+    const slots: { slot: "a" | "b" | "c" | "d" | "e"; workerId: number | null; start: string; end: string }[] = [
       { slot: "a", workerId: s.aTimeWorkerId, start: (s as any).aTimeStartTime || "17:30", end: (s as any).aTimeEndTime || "22:00" },
       { slot: "b", workerId: s.bTimeWorkerId, start: (s as any).bTimeStartTime || "18:00", end: (s as any).bTimeEndTime || "22:00" },
       { slot: "c", workerId: s.cTimeWorkerId, start: (s as any).cTimeStartTime || "18:00", end: (s as any).cTimeEndTime || "22:00" },
       { slot: "d", workerId: (s as any).dTimeWorkerId, start: (s as any).dTimeStartTime || "18:00", end: (s as any).dTimeEndTime || "21:00" },
+      { slot: "e", workerId: (s as any).eTimeWorkerId, start: (s as any).eTimeStartTime || "18:00", end: (s as any).eTimeEndTime || "21:00" },
     ];
 
     for (const { slot, workerId, start, end } of slots) {

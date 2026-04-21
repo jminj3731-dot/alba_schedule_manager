@@ -146,6 +146,7 @@ export const appRouter = router({
         bTimeWorkerId: z.number().nullable(),
         cTimeWorkerId: z.number().nullable(),
         dTimeWorkerId: z.number().nullable().optional(),
+        eTimeWorkerId: z.number().nullable().optional(),
       }))
       .mutation(async ({ input }) => {
         return upsertSchedule(input);
@@ -154,7 +155,7 @@ export const appRouter = router({
     updateEndTime: publicProcedure
       .input(z.object({
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c", "d"]),
+        timeSlot: z.enum(["a", "b", "c", "d", "e"]),
         endTime: z.string(),
         actualEndTime: z.string().optional(),
       }))
@@ -165,7 +166,7 @@ export const appRouter = router({
     updateTime: publicProcedure
       .input(z.object({
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c", "d"]),
+        timeSlot: z.enum(["a", "b", "c", "d", "e"]),
         startTime: z.string().optional(),
         endTime: z.string().optional(),
       }))
@@ -176,7 +177,7 @@ export const appRouter = router({
     checkIn: publicProcedure
       .input(z.object({
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c", "d"]),
+        timeSlot: z.enum(["a", "b", "c", "d", "e"]),
         startTime: z.string(),       // 30분 반올림된 시간
         actualStartTime: z.string(), // 실제 입력 시간
       }))
@@ -208,7 +209,7 @@ export const appRouter = router({
     checkOut: publicProcedure
       .input(z.object({
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c", "d"]),
+        timeSlot: z.enum(["a", "b", "c", "d", "e"]),
         endTime: z.string(),         // 30분 반올림된 시간
         actualEndTime: z.string(),   // 실제 입력 시간
       }))
@@ -597,7 +598,7 @@ export const appRouter = router({
         workerId: z.number().nullable().optional(),
         workerName: z.string(),
         scheduleDate: z.string(),
-        timeSlot: z.enum(["a", "b", "c", "d"]),
+        timeSlot: z.enum(["a", "b", "c", "d", "e"]),
         correctionType: z.enum(["check_in", "check_out", "both"]),
         actionType: z.enum(["corrected", "skipped"]),
         originalCheckInTime: z.string().optional(),

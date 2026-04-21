@@ -84,6 +84,7 @@ const DEFAULT_START_TIMES: Record<string, string> = {
   b: "18:00",
   c: "18:00",
   d: "18:00",
+  e: "18:00",
 };
 
 const DEFAULT_END_TIMES: Record<string, string> = {
@@ -91,6 +92,7 @@ const DEFAULT_END_TIMES: Record<string, string> = {
   b: "22:00",
   c: "22:00",
   d: "21:00",
+  e: "21:00",
 };
 
 /**
@@ -145,11 +147,12 @@ export async function checkAndSendShiftReminders(): Promise<void> {
     const workerMap = new Map(allWorkers.map(w => [w.id, w]));
 
     // 각 타임 슬롯 확인
-    const timeSlots: Array<{ slot: "a" | "b" | "c" | "d"; workerId: number | null }> = [
+    const timeSlots: Array<{ slot: "a" | "b" | "c" | "d" | "e"; workerId: number | null }> = [
       { slot: "a", workerId: schedule.aTimeWorkerId },
       { slot: "b", workerId: schedule.bTimeWorkerId },
       { slot: "c", workerId: schedule.cTimeWorkerId },
       { slot: "d", workerId: (schedule as any).dTimeWorkerId ?? null },
+      { slot: "e", workerId: (schedule as any).eTimeWorkerId ?? null },
     ];
 
     for (const { slot, workerId } of timeSlots) {
