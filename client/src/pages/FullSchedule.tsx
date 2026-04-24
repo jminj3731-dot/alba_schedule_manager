@@ -88,7 +88,7 @@ export default function FullSchedule() {
   }
 
   function hasMainWorker(schedule: typeof schedules[0]) {
-    const ids = [schedule.aTimeWorkerId, schedule.bTimeWorkerId, schedule.cTimeWorkerId, (schedule as any).dTimeWorkerId].filter(Boolean);
+    const ids = [schedule.aTimeWorkerId, schedule.bTimeWorkerId, schedule.cTimeWorkerId, (schedule as any).dTimeWorkerId, (schedule as any).eTimeWorkerId].filter(Boolean);
     return ids.some((id) => workerMap[id!]?.skillLevel === "main");
   }
 
@@ -187,16 +187,20 @@ export default function FullSchedule() {
               const bStart = (schedule as any).bTimeStartTime || "18:00";
               const cStart = (schedule as any).cTimeStartTime || "18:00";
               const dStart = (schedule as any).dTimeStartTime || "18:00";
+              const eStart = (schedule as any).eTimeStartTime || "18:00";
               const aEnd = (schedule as any).aTimeEndTime || "22:00";
               const bEnd = (schedule as any).bTimeEndTime || "22:00";
               const cEnd = (schedule as any).cTimeEndTime || "22:00";
               const dEnd = (schedule as any).dTimeEndTime || "21:00";
+              const eEnd = (schedule as any).eTimeEndTime || "21:00";
               const dWorkerId = (schedule as any).dTimeWorkerId ?? null;
+              const eWorkerId = (schedule as any).eTimeWorkerId ?? null;
               const slots = [
                 { label: "A", time: `${aStart}~${aEnd}`, workerId: schedule.aTimeWorkerId },
                 { label: "B", time: `${bStart}~${bEnd}`, workerId: schedule.bTimeWorkerId },
                 ...(isWeekend || schedule.cTimeWorkerId ? [{ label: "C", time: `${cStart}~${cEnd}`, workerId: schedule.cTimeWorkerId }] : []),
                 ...(dWorkerId ? [{ label: "D", time: `${dStart}~${dEnd}`, workerId: dWorkerId }] : []),
+                ...(eWorkerId ? [{ label: "E", time: `${eStart}~${eEnd}`, workerId: eWorkerId }] : []),
               ];
 
               return (

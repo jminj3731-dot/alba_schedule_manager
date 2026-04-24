@@ -111,6 +111,8 @@ export default function WorkerView() {
               const aWorker = getWorkerName(schedule?.aTimeWorkerId ?? null);
               const bWorker = getWorkerName(schedule?.bTimeWorkerId ?? null);
               const cWorker = getWorkerName(schedule?.cTimeWorkerId ?? null);
+              const dWorker = getWorkerName((schedule as any)?.dTimeWorkerId ?? null);
+              const eWorker = getWorkerName((schedule as any)?.eTimeWorkerId ?? null);
 
               return (
                 <Card
@@ -141,6 +143,21 @@ export default function WorkerView() {
                             label="C"
                             time="18:00~22:00"
                             worker={cWorker}
+                          />
+                        )}
+                        {/* D/E Time (optional) */}
+                        {dWorker && (
+                          <TimeSlotBadge
+                            label="D"
+                            time={`${(schedule as any)?.dTimeStartTime || "18:00"}~${(schedule as any)?.dTimeEndTime || "21:00"}`}
+                            worker={dWorker}
+                          />
+                        )}
+                        {eWorker && (
+                          <TimeSlotBadge
+                            label="E"
+                            time={`${(schedule as any)?.eTimeStartTime || "18:00"}~${(schedule as any)?.eTimeEndTime || "21:00"}`}
+                            worker={eWorker}
                           />
                         )}
                       </div>
@@ -178,6 +195,8 @@ export default function WorkerView() {
                     const aW = getWorkerName(schedule?.aTimeWorkerId ?? null);
                     const bW = getWorkerName(schedule?.bTimeWorkerId ?? null);
                     const cW = getWorkerName(schedule?.cTimeWorkerId ?? null);
+                    const dW = getWorkerName((schedule as any)?.dTimeWorkerId ?? null);
+                    const eW = getWorkerName((schedule as any)?.eTimeWorkerId ?? null);
 
                     return (
                       <div
@@ -214,6 +233,16 @@ export default function WorkerView() {
                             {cW && (
                               <div className="text-[9px] px-1 py-0.5 rounded bg-accent text-accent-foreground truncate">
                                 {cW.name}
+                              </div>
+                            )}
+                            {dW && (
+                              <div className="text-[9px] px-1 py-0.5 rounded bg-secondary/80 text-secondary-foreground truncate">
+                                {dW.name}
+                              </div>
+                            )}
+                            {eW && (
+                              <div className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground truncate">
+                                {eW.name}
                               </div>
                             )}
                           </div>

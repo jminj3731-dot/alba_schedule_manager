@@ -445,7 +445,8 @@ export default function Home() {
         (s.aTimeWorkerId === currentWorker.id ||
           s.bTimeWorkerId === currentWorker.id ||
           s.cTimeWorkerId === currentWorker.id ||
-          (s as any).dTimeWorkerId === currentWorker.id)
+          (s as any).dTimeWorkerId === currentWorker.id ||
+          (s as any).eTimeWorkerId === currentWorker.id)
     );
   }, [currentWorker, schedules]);
 
@@ -470,6 +471,11 @@ export default function Home() {
       const startTime = (schedule as any).dTimeStartTime || "18:00";
       const endTime = (schedule as any).dTimeEndTime || "21:00";
       return { label: "D", slot: "d" as const, startTime, endTime, time: `${startTime}~${endTime}` };
+    }
+    if ((schedule as any).eTimeWorkerId === currentWorker.id) {
+      const startTime = (schedule as any).eTimeStartTime || "18:00";
+      const endTime = (schedule as any).eTimeEndTime || "21:00";
+      return { label: "E", slot: "e" as const, startTime, endTime, time: `${startTime}~${endTime}` };
     }
     return null;
   }
