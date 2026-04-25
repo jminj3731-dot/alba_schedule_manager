@@ -77,7 +77,7 @@ async function ensureTables(pool: any) {
         CONSTRAINT \`announcements_id\` PRIMARY KEY(\`id\`)
       )
     `);
-    // E슬롯 컬럼 추가 (이미 존재하면 무시)
+    // E슬롯 컬럼 추가 (이미 존재하면 ER_DUP_FIELDNAME 에러 무시)
     const eColumns = [
       "eTimeWorkerId int",
       "eTimeStartTime varchar(10)",
@@ -87,7 +87,9 @@ async function ensureTables(pool: any) {
     ];
     for (const col of eColumns) {
       const [colName] = col.split(" ");
-      await pool.execute(`ALTER TABLE \`schedules\` ADD COLUMN IF NOT EXISTS \`${colName}\` ${col.slice(colName.length + 1)}`).catch(() => {});
+      await pool.execute(`ALTER TABLE \`schedules\` ADD \`${colName}\` ${col.slice(colName.length + 1)}`).catch((err: any) => {
+        if (err.errno !== 1060) console.warn(`[Database] ensureTables ALTER warning (${colName}):`, err.message);
+      });
     }
   } catch (err: any) {
     console.warn('[Database] ensureTables warning:', err.message);

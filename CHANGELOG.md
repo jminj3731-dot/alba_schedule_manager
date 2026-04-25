@@ -5,6 +5,14 @@ Codex 등 다른 도구와 구분하기 위해 [Claude] 커밋에 해당하는 �
 
 ---
 
+## 2026-04-25 (2)
+
+### E슬롯 DB 컬럼 추가 버그 수정
+- `server/db.ts`: ensureTables의 `ADD COLUMN IF NOT EXISTS` → `ADD COLUMN` + errno 1060만 무시
+  - Railway MySQL이 IF NOT EXISTS 문법 미지원 → 컬럼이 실제로 추가 안 되는 문제였음
+
+---
+
 ## 2026-04-25
 
 ### E슬롯(5번째 근무자) 추가
