@@ -37,6 +37,13 @@ const END_TIMES = ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00"
 // 기본 출근/퇴근 시간
 const DEFAULT_START: Record<string, string> = { a: "17:30", b: "18:00", c: "18:00" };
 const DEFAULT_END = "22:00";
+const SLOT_TIME_DEFAULTS: Record<"a" | "b" | "c" | "d" | "e", { start: string; end: string }> = {
+  a: { start: "17:30", end: "22:00" },
+  b: { start: "18:00", end: "22:00" },
+  c: { start: "18:00", end: "22:00" },
+  d: { start: "18:00", end: "22:00" },
+  e: { start: "18:00", end: "22:00" },
+};
 
 function toLocalDateStr(d: Date): string {
   const y = d.getFullYear();
@@ -126,6 +133,30 @@ function isDayOffViolation(workerId: number | null, dayOfWeek: string, workers: 
   if (!worker) return false;
   const daysOff = (worker.fixedDaysOff || "").split(",").filter(Boolean);
   return daysOff.includes(dayOfWeek);
+}
+
+function resolveWorkerTimesForSlot(
+  worker: any,
+  slot: "a" | "b" | "c" | "d" | "e",
+): { slot: "a" | "b" | "c" | "d" | "e"; startTime?: string; endTime?: string } | undefined {
+  if (!worker) return undefined;
+
+  const defaults = SLOT_TIME_DEFAULTS[slot];
+  if (slot === "a") {
+    return {
+      slot,
+      startTime: worker.defaultStartTime ?? defaults.start,
+      endTime: worker.defaultEndTime ?? defaults.end,
+    };
+  }
+
+  return {
+    slot,
+    startTime: defaults.start,
+    endTime: worker.skillLevel === "trainee"
+      ? worker.defaultEndTime ?? defaults.end
+      : defaults.end,
+  };
 }
 
 export default function Master() {
@@ -440,7 +471,7 @@ export default function Master() {
                                   onValueChange={(v) => {
                                     const id = v === NONE_VALUE ? null : Number(v);
                                     const w = workers.find((ww) => ww.id === id);
-                                    saveSchedule(d.dateStr, { [workerKey]: id } as any, w?.defaultStartTime || w?.defaultEndTime ? { slot, startTime: w.defaultStartTime ?? undefined, endTime: w.defaultEndTime ?? undefined } : undefined);
+                                    saveSchedule(d.dateStr, { [workerKey]: id } as any, resolveWorkerTimesForSlot(w, slot));
                                     if (!id) {
                                       if (slot === "c" && !isWeekend) setExpandedCSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });
                                       if (slot === "d") setExpandedDSlots((prev) => { const next = new Set(prev); next.delete(d.dateStr); return next; });

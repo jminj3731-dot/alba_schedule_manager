@@ -41,6 +41,109 @@ import {
 } from "./db";
 
 const WEEKEND_DAYS = ["금", "토"];
+const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
+
+function splitDays(value?: string | null) {
+  return (value || "").split(",").map((day) => day.trim()).filter(Boolean);
+}
+
+function toLocalDateStr(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getTargetMin(worker: any) {
+  return worker.targetDaysMin ?? 3;
+}
+
+function getTargetMax(worker: any) {
+  return Math.max(worker.targetDaysMax ?? 4, getTargetMin(worker));
+}
+
+function getSoftWeeklyCap(worker: any) {
+  return Math.max(getTargetMax(worker), 5);
+}
+
+function getConsecutiveDays(workerId: number, date: Date, assignedDates: Record<number, Set<string>>) {
+  const assigned = assignedDates[workerId];
+  if (!assigned) return 0;
+
+  let streak = 0;
+  const cursor = new Date(date);
+  while (true) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (!assigned.has(toLocalDateStr(cursor))) break;
+    streak++;
+  }
+  return streak;
+}
+
+function scoreAutoAssignWorker(
+  worker: any,
+  dayName: string,
+  date: Date,
+  weekCounts: Record<number, number>,
+  assignedDates: Record<number, Set<string>>,
+  options?: {
+    requireMain?: boolean;
+    preferSub?: boolean;
+  },
+) {
+  const preferredDays = splitDays(worker.preferredDays);
+  const count = weekCounts[worker.id] || 0;
+  const min = getTargetMin(worker);
+  const max = getTargetMax(worker);
+  const consecutiveDays = getConsecutiveDays(worker.id, date, assignedDates);
+
+  let score = 0;
+
+  if (preferredDays.includes(dayName)) score += 80;
+  score += Math.max(min - count, 0) * 28;
+  score += Math.max(max - count, 0) * 8;
+  score -= Math.max(count - max + 1, 0) * 18;
+  score += Math.max(0, 5 - count) * 4;
+
+  if (consecutiveDays >= 1) score -= 18;
+  if (consecutiveDays >= 2) score -= 26;
+  if (consecutiveDays >= 3) score -= 36;
+
+  if (options?.requireMain && worker.skillLevel === "main") score += 24;
+  if (options?.preferSub && worker.skillLevel === "sub") score += 14;
+  if (options?.preferSub && worker.skillLevel === "main") score -= 6;
+
+  return {
+    worker,
+    score,
+    preferred: preferredDays.includes(dayName),
+    count,
+    consecutiveDays,
+    max,
+  };
+}
+
+function rankAutoAssignWorkers(
+  workers: any[],
+  dayName: string,
+  date: Date,
+  weekCounts: Record<number, number>,
+  assignedDates: Record<number, Set<string>>,
+  options?: {
+    requireMain?: boolean;
+    preferSub?: boolean;
+  },
+) {
+  return workers
+    .map((worker) => scoreAutoAssignWorker(worker, dayName, date, weekCounts, assignedDates, options))
+    .sort((a, b) =>
+      b.score - a.score ||
+      a.count - b.count ||
+      a.consecutiveDays - b.consecutiveDays ||
+      Number(b.preferred) - Number(a.preferred) ||
+      a.worker.name.localeCompare(b.worker.name, "ko"),
+    );
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -271,89 +374,98 @@ export const appRouter = router({
         const allWorkers = await getAllWorkers();
         if (allWorkers.length === 0) return { success: false, message: "등록된 알바생이 없습니다." };
 
-        const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
         const start = new Date(input.startDate);
         const end = new Date(input.endDate);
         const results: { date: string; assigned: boolean }[] = [];
 
-        // Track how many days each worker is assigned this week
         const weekCounts: Record<number, number> = {};
-        allWorkers.forEach(w => { weekCounts[w.id] = 0; });
+        const assignedDates: Record<number, Set<string>> = {};
+        allWorkers.forEach((worker) => {
+          weekCounts[worker.id] = 0;
+          assignedDates[worker.id] = new Set<string>();
+        });
 
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          const dateStr = d.toISOString().split("T")[0];
+          const dateStr = toLocalDateStr(d);
           const dayName = DAY_NAMES[d.getDay()];
           const isWeekend = WEEKEND_DAYS.includes(dayName);
           const requiredCount = isWeekend ? 3 : 2;
 
-          // Get available workers for this day (not on fixed day off)
-          // 수습(trainee)은 D슬롯 전용 — A/B/C 자동배정에서 제외
-          const available = allWorkers.filter(w => {
+          const available = allWorkers.filter((w) => {
             if (w.skillLevel === "trainee") return false;
-            const daysOff = (w.fixedDaysOff || "").split(",").map(s => s.trim()).filter(Boolean);
+            const daysOff = splitDays(w.fixedDaysOff);
             return !daysOff.includes(dayName);
           });
 
-          const availableTrainees = allWorkers.filter(w => {
+          const availableTrainees = allWorkers.filter((w) => {
             if (w.skillLevel !== "trainee") return false;
-            const daysOff = (w.fixedDaysOff || "").split(",").map(s => s.trim()).filter(Boolean);
+            const daysOff = splitDays(w.fixedDaysOff);
             return !daysOff.includes(dayName);
           });
-
-          // Score workers: prefer those who listed this day as preferred, then balance counts
-          const scored = available.map(w => {
-            const preferred = (w.preferredDays || "").split(",").map(s => s.trim()).filter(Boolean);
-            const prefScore = preferred.includes(dayName) ? 100 : 0;
-            const balanceScore = 10 - (weekCounts[w.id] || 0);
-            return { worker: w, score: prefScore + balanceScore };
-          }).sort((a, b) => b.score - a.score);
-
-          // Ensure at least one main worker
-          const mainWorkers = scored.filter(s => s.worker.skillLevel === "main");
 
           const assigned: typeof allWorkers = [];
+          const mainCandidates = available.filter((worker) => worker.skillLevel === "main");
 
-          // First pick: guarantee a main worker for A-time
-          if (mainWorkers.length > 0) {
-            assigned.push(mainWorkers[0].worker);
+          if (mainCandidates.length > 0) {
+            const rankedMain = rankAutoAssignWorkers(
+              mainCandidates,
+              dayName,
+              d,
+              weekCounts,
+              assignedDates,
+              { requireMain: true },
+            );
+            const mainPick =
+              rankedMain.find(({ worker, count }) => count < getSoftWeeklyCap(worker))?.worker ??
+              rankedMain[0]?.worker;
+            if (mainPick) assigned.push(mainPick);
           }
 
-          // Fill remaining slots from scored list (excluding already assigned)
-          const remaining = scored.filter(s => !assigned.find(a => a.id === s.worker.id));
-          for (const s of remaining) {
-            if (assigned.length >= requiredCount) break;
-            if ((weekCounts[s.worker.id] || 0) >= 5) continue;
-            assigned.push(s.worker);
-          }
+          while (assigned.length < requiredCount) {
+            const remainingWorkers = available.filter(
+              (worker) => !assigned.some((assignedWorker) => assignedWorker.id === worker.id),
+            );
+            if (remainingWorkers.length === 0) break;
 
-          // If still not enough, relax the 5-day limit
-          if (assigned.length < requiredCount) {
-            for (const s of remaining) {
-              if (assigned.length >= requiredCount) break;
-              if (!assigned.find(a => a.id === s.worker.id)) {
-                assigned.push(s.worker);
-              }
-            }
-          }
+            const rankedRemaining = rankAutoAssignWorkers(
+              remainingWorkers,
+              dayName,
+              d,
+              weekCounts,
+              assignedDates,
+              { preferSub: assigned.length >= 1 },
+            );
 
-          // D슬롯 수습 배정: 선호일 우선, 주 5일 초과 방지
-          const scoredTrainees = availableTrainees.map(w => {
-            const preferred = (w.preferredDays || "").split(",").map(s => s.trim()).filter(Boolean);
-            const prefScore = preferred.includes(dayName) ? 100 : 0;
-            const balanceScore = 10 - (weekCounts[w.id] || 0);
-            return { worker: w, score: prefScore + balanceScore };
-          }).sort((a, b) => b.score - a.score);
+            const nextPick =
+              rankedRemaining.find(({ worker, count }) => count < getSoftWeeklyCap(worker))?.worker ??
+              rankedRemaining[0]?.worker;
+            if (!nextPick) break;
+            assigned.push(nextPick);
+          }
 
           let dTimeWorkerId: number | null = null;
-          for (const s of scoredTrainees) {
-            if ((weekCounts[s.worker.id] || 0) >= 5) continue;
-            dTimeWorkerId = s.worker.id;
-            break;
+          const rankedTrainees = rankAutoAssignWorkers(
+            availableTrainees,
+            dayName,
+            d,
+            weekCounts,
+            assignedDates,
+          );
+          const traineePick =
+            rankedTrainees.find(({ worker, count }) => count < getSoftWeeklyCap(worker))?.worker ??
+            rankedTrainees[0]?.worker;
+          if (traineePick) {
+            dTimeWorkerId = traineePick.id;
           }
 
-          // Update week counts
-          assigned.forEach(w => { weekCounts[w.id] = (weekCounts[w.id] || 0) + 1; });
-          if (dTimeWorkerId) weekCounts[dTimeWorkerId] = (weekCounts[dTimeWorkerId] || 0) + 1;
+          assigned.forEach((worker) => {
+            weekCounts[worker.id] = (weekCounts[worker.id] || 0) + 1;
+            assignedDates[worker.id].add(dateStr);
+          });
+          if (dTimeWorkerId) {
+            weekCounts[dTimeWorkerId] = (weekCounts[dTimeWorkerId] || 0) + 1;
+            assignedDates[dTimeWorkerId].add(dateStr);
+          }
 
           await upsertSchedule({
             scheduleDate: dateStr,
@@ -377,14 +489,13 @@ export const appRouter = router({
         endDate: z.string(),   // 이번 주 종료일
       }))
       .mutation(async ({ input }) => {
-        const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
         // 전주 날짜 범위 계산
         const prevStart = new Date(input.startDate);
         prevStart.setDate(prevStart.getDate() - 7);
         const prevEnd = new Date(input.endDate);
         prevEnd.setDate(prevEnd.getDate() - 7);
-        const prevStartStr = prevStart.toISOString().split("T")[0];
-        const prevEndStr = prevEnd.toISOString().split("T")[0];
+        const prevStartStr = toLocalDateStr(prevStart);
+        const prevEndStr = toLocalDateStr(prevEnd);
 
         const prevSchedules = await getSchedulesByDateRange(prevStartStr, prevEndStr);
         if (prevSchedules.length === 0) return { success: false, message: "전주 스케줄이 없습니다." };
@@ -394,7 +505,7 @@ export const appRouter = router({
           // 전주 날짜 → 이번 주 날짜로 변환 (+7일)
           const prevDate = new Date(prev.scheduleDate);
           prevDate.setDate(prevDate.getDate() + 7);
-          const newDateStr = prevDate.toISOString().split("T")[0];
+          const newDateStr = toLocalDateStr(prevDate);
           const dayName = DAY_NAMES[prevDate.getDay()];
 
           await upsertSchedule({

@@ -259,12 +259,44 @@ export async function getScheduleByDate(date: string) {
   return result[0];
 }
 
-// 타임별 기본 근무 시간 (담당자 배정 시 시간이 없으면 자동 채움)
+// 타임별 기본 근무 시간.
+// A타임만 프로필 시작시간을 존중하고, 그 외 슬롯은 슬롯 시작시간(18:00)을 우선한다.
+// 단, 수습(trainee)은 퇴근시간이 자주 바뀌므로 프로필 퇴근시간을 우선한다.
 const DEFAULT_TIMES = {
   a: { start: "17:30", end: "22:00" },
   b: { start: "18:00", end: "22:00" },
   c: { start: "18:00", end: "22:00" },
-};
+  d: { start: "18:00", end: "22:00" },
+  e: { start: "18:00", end: "22:00" },
+} as const;
+
+async function resolveSlotTimes(
+  slot: keyof typeof DEFAULT_TIMES,
+  workerId: number | null | undefined,
+) {
+  const defaults = DEFAULT_TIMES[slot];
+  if (!workerId) return { start: null, end: null };
+
+  const worker = await getWorkerById(workerId);
+  if (!worker) {
+    return { start: defaults.start, end: defaults.end };
+  }
+
+  if (slot === "a") {
+    return {
+      start: worker.defaultStartTime ?? defaults.start,
+      end: worker.defaultEndTime ?? defaults.end,
+    };
+  }
+
+  return {
+    start: defaults.start,
+    end:
+      worker.skillLevel === "trainee"
+        ? worker.defaultEndTime ?? defaults.end
+        : defaults.end,
+  };
+}
 
 export async function upsertSchedule(data: {
   scheduleDate: string;
@@ -293,8 +325,9 @@ export async function upsertSchedule(data: {
     if (data.eTimeWorkerId !== undefined) updateFields.eTimeWorkerId = data.eTimeWorkerId;
     // A타임: 담당자가 있는데 시간이 없으면 기본값 채우기
     if (data.aTimeWorkerId && !existing.aTimeStartTime) {
-      updateFields.aTimeStartTime = DEFAULT_TIMES.a.start;
-      updateFields.aTimeEndTime = DEFAULT_TIMES.a.end;
+      const slotTimes = await resolveSlotTimes("a", data.aTimeWorkerId);
+      updateFields.aTimeStartTime = slotTimes.start;
+      updateFields.aTimeEndTime = slotTimes.end;
     }
     if (!data.aTimeWorkerId) {
       updateFields.aTimeStartTime = null;
@@ -302,8 +335,9 @@ export async function upsertSchedule(data: {
     }
     // B타임
     if (data.bTimeWorkerId && !existing.bTimeStartTime) {
-      updateFields.bTimeStartTime = DEFAULT_TIMES.b.start;
-      updateFields.bTimeEndTime = DEFAULT_TIMES.b.end;
+      const slotTimes = await resolveSlotTimes("b", data.bTimeWorkerId);
+      updateFields.bTimeStartTime = slotTimes.start;
+      updateFields.bTimeEndTime = slotTimes.end;
     }
     if (!data.bTimeWorkerId) {
       updateFields.bTimeStartTime = null;
@@ -311,8 +345,9 @@ export async function upsertSchedule(data: {
     }
     // C타임
     if (data.cTimeWorkerId && !(existing as any).cTimeStartTime) {
-      updateFields.cTimeStartTime = DEFAULT_TIMES.c.start;
-      updateFields.cTimeEndTime = DEFAULT_TIMES.c.end;
+      const slotTimes = await resolveSlotTimes("c", data.cTimeWorkerId);
+      updateFields.cTimeStartTime = slotTimes.start;
+      updateFields.cTimeEndTime = slotTimes.end;
     }
     if (!data.cTimeWorkerId) {
       updateFields.cTimeStartTime = null;
@@ -321,8 +356,9 @@ export async function upsertSchedule(data: {
     // D타임
     if (data.dTimeWorkerId !== undefined) {
       if (data.dTimeWorkerId && !(existing as any).dTimeStartTime) {
-        updateFields.dTimeStartTime = DEFAULT_TIMES.c.start;
-        updateFields.dTimeEndTime = DEFAULT_TIMES.c.end;
+        const slotTimes = await resolveSlotTimes("d", data.dTimeWorkerId);
+        updateFields.dTimeStartTime = slotTimes.start;
+        updateFields.dTimeEndTime = slotTimes.end;
       }
       if (!data.dTimeWorkerId) {
         updateFields.dTimeStartTime = null;
@@ -332,8 +368,9 @@ export async function upsertSchedule(data: {
     // E타임
     if (data.eTimeWorkerId !== undefined) {
       if (data.eTimeWorkerId && !(existing as any).eTimeStartTime) {
-        updateFields.eTimeStartTime = DEFAULT_TIMES.c.start;
-        updateFields.eTimeEndTime = DEFAULT_TIMES.c.end;
+        const slotTimes = await resolveSlotTimes("e", data.eTimeWorkerId);
+        updateFields.eTimeStartTime = slotTimes.start;
+        updateFields.eTimeEndTime = slotTimes.end;
       }
       if (!data.eTimeWorkerId) {
         updateFields.eTimeStartTime = null;
@@ -344,6 +381,14 @@ export async function upsertSchedule(data: {
     return { id: existing.id };
   } else {
     // 신규 레코드: 담당자가 있으면 기본 시간 자동 채우기
+    const [aTimes, bTimes, cTimes, dTimes, eTimes] = await Promise.all([
+      resolveSlotTimes("a", data.aTimeWorkerId),
+      resolveSlotTimes("b", data.bTimeWorkerId),
+      resolveSlotTimes("c", data.cTimeWorkerId),
+      resolveSlotTimes("d", data.dTimeWorkerId ?? null),
+      resolveSlotTimes("e", data.eTimeWorkerId ?? null),
+    ]);
+
     const result = await db.insert(schedules).values({
       scheduleDate: data.scheduleDate,
       dayOfWeek: data.dayOfWeek,
@@ -353,16 +398,16 @@ export async function upsertSchedule(data: {
       cTimeWorkerId: data.cTimeWorkerId,
       dTimeWorkerId: data.dTimeWorkerId ?? null,
       eTimeWorkerId: data.eTimeWorkerId ?? null,
-      aTimeStartTime: data.aTimeWorkerId ? DEFAULT_TIMES.a.start : null,
-      aTimeEndTime: data.aTimeWorkerId ? DEFAULT_TIMES.a.end : null,
-      bTimeStartTime: data.bTimeWorkerId ? DEFAULT_TIMES.b.start : null,
-      bTimeEndTime: data.bTimeWorkerId ? DEFAULT_TIMES.b.end : null,
-      cTimeStartTime: data.cTimeWorkerId ? DEFAULT_TIMES.c.start : null,
-      cTimeEndTime: data.cTimeWorkerId ? DEFAULT_TIMES.c.end : null,
-      dTimeStartTime: data.dTimeWorkerId ? DEFAULT_TIMES.c.start : null,
-      dTimeEndTime: data.dTimeWorkerId ? DEFAULT_TIMES.c.end : null,
-      eTimeStartTime: data.eTimeWorkerId ? DEFAULT_TIMES.c.start : null,
-      eTimeEndTime: data.eTimeWorkerId ? DEFAULT_TIMES.c.end : null,
+      aTimeStartTime: aTimes.start,
+      aTimeEndTime: aTimes.end,
+      bTimeStartTime: bTimes.start,
+      bTimeEndTime: bTimes.end,
+      cTimeStartTime: cTimes.start,
+      cTimeEndTime: cTimes.end,
+      dTimeStartTime: dTimes.start,
+      dTimeEndTime: dTimes.end,
+      eTimeStartTime: eTimes.start,
+      eTimeEndTime: eTimes.end,
     } as any);
     return { id: result[0].insertId };
   }
