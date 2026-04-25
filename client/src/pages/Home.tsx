@@ -179,7 +179,7 @@ export default function Home() {
   const [correctionCtx, setCorrectionCtx] = useState<{
     type: "check_in" | "check_out" | "both";
     scheduleDate: string;
-    timeSlot: "a" | "b" | "c" | "d";
+    timeSlot: "a" | "b" | "c" | "d" | "e";
     originalCheckInTime?: string;
     originalCheckOutTime?: string;
     scheduledCheckInTime?: string;
@@ -649,12 +649,16 @@ export default function Home() {
             const checkedInTime = todaySlot && todaySchedule ? (
               todaySlot.slot === "a" ? (todaySchedule as any).aTimeActualStartTime :
               todaySlot.slot === "b" ? (todaySchedule as any).bTimeActualStartTime :
-              (todaySchedule as any).cTimeActualStartTime
+              todaySlot.slot === "c" ? (todaySchedule as any).cTimeActualStartTime :
+              todaySlot.slot === "d" ? (todaySchedule as any).dTimeActualStartTime :
+              (todaySchedule as any).eTimeActualStartTime
             ) : null;
             const checkedOutTime = todaySlot && todaySchedule ? (
               todaySlot.slot === "a" ? (todaySchedule as any).aTimeActualEndTime :
               todaySlot.slot === "b" ? (todaySchedule as any).bTimeActualEndTime :
-              (todaySchedule as any).cTimeActualEndTime
+              todaySlot.slot === "c" ? (todaySchedule as any).cTimeActualEndTime :
+              todaySlot.slot === "d" ? (todaySchedule as any).dTimeActualEndTime :
+              (todaySchedule as any).eTimeActualEndTime
             ) : null;
 
             return (
@@ -912,7 +916,9 @@ export default function Home() {
                   const checkedInTime = mySlot && schedule ? (
                     mySlot.slot === "a" ? (schedule as any).aTimeActualStartTime :
                     mySlot.slot === "b" ? (schedule as any).bTimeActualStartTime :
-                    (schedule as any).cTimeActualStartTime
+                    mySlot.slot === "c" ? (schedule as any).cTimeActualStartTime :
+                    mySlot.slot === "d" ? (schedule as any).dTimeActualStartTime :
+                    (schedule as any).eTimeActualStartTime
                   ) : null;
 
                   return (
@@ -975,12 +981,16 @@ export default function Home() {
                       const checkedInTime = (
                         mySlot.slot === "a" ? (schedule as any).aTimeActualStartTime :
                         mySlot.slot === "b" ? (schedule as any).bTimeActualStartTime :
-                        (schedule as any).cTimeActualStartTime
+                        mySlot.slot === "c" ? (schedule as any).cTimeActualStartTime :
+                        mySlot.slot === "d" ? (schedule as any).dTimeActualStartTime :
+                        (schedule as any).eTimeActualStartTime
                       );
                       const checkedOutTime = (
                         mySlot.slot === "a" ? (schedule as any).aTimeActualEndTime :
                         mySlot.slot === "b" ? (schedule as any).bTimeActualEndTime :
-                        (schedule as any).cTimeActualEndTime
+                        mySlot.slot === "c" ? (schedule as any).cTimeActualEndTime :
+                        mySlot.slot === "d" ? (schedule as any).dTimeActualEndTime :
+                        (schedule as any).eTimeActualEndTime
                       );
 
                       return (
