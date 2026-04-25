@@ -828,7 +828,7 @@ function roundTimeToNearest30MinServer(timeStr: string): string {
 
 export async function updateScheduleActualTimes(data: {
   scheduleDate: string;
-  timeSlot: "a" | "b" | "c" | "d";
+  timeSlot: "a" | "b" | "c" | "d" | "e";
   correctedCheckInTime?: string;
   correctedCheckOutTime?: string;
   scheduledCheckInTime?: string;
@@ -846,14 +846,18 @@ export async function updateScheduleActualTimes(data: {
     const displayTime = calcCheckInTimeServer(data.correctedCheckInTime, scheduled);
     if (slot === "a") { updateFields.aTimeActualStartTime = data.correctedCheckInTime; updateFields.aTimeStartTime = displayTime; }
     else if (slot === "b") { updateFields.bTimeActualStartTime = data.correctedCheckInTime; updateFields.bTimeStartTime = displayTime; }
-    else { updateFields.cTimeActualStartTime = data.correctedCheckInTime; updateFields.cTimeStartTime = displayTime; }
+    else if (slot === "c") { updateFields.cTimeActualStartTime = data.correctedCheckInTime; updateFields.cTimeStartTime = displayTime; }
+    else if (slot === "d") { updateFields.dTimeActualStartTime = data.correctedCheckInTime; updateFields.dTimeStartTime = displayTime; }
+    else { updateFields.eTimeActualStartTime = data.correctedCheckInTime; updateFields.eTimeStartTime = displayTime; }
   }
 
   if (data.correctedCheckOutTime) {
     const displayTime = roundTimeToNearest30MinServer(data.correctedCheckOutTime);
     if (slot === "a") { updateFields.aTimeActualEndTime = data.correctedCheckOutTime; updateFields.aTimeEndTime = displayTime; }
     else if (slot === "b") { updateFields.bTimeActualEndTime = data.correctedCheckOutTime; updateFields.bTimeEndTime = displayTime; }
-    else { updateFields.cTimeActualEndTime = data.correctedCheckOutTime; updateFields.cTimeEndTime = displayTime; }
+    else if (slot === "c") { updateFields.cTimeActualEndTime = data.correctedCheckOutTime; updateFields.cTimeEndTime = displayTime; }
+    else if (slot === "d") { updateFields.dTimeActualEndTime = data.correctedCheckOutTime; updateFields.dTimeEndTime = displayTime; }
+    else { updateFields.eTimeActualEndTime = data.correctedCheckOutTime; updateFields.eTimeEndTime = displayTime; }
   }
 
   if (Object.keys(updateFields).length > 0) {

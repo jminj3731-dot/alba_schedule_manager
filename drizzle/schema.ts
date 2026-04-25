@@ -199,7 +199,7 @@ export const attendanceCorrections = mysqlTable("attendanceCorrections", {
   workerId: int("workerId"),
   workerName: varchar("workerName", { length: 100 }).notNull(),
   scheduleDate: varchar("scheduleDate", { length: 10 }).notNull(),
-  timeSlot: mysqlEnum("timeSlot", ["a", "b", "c", "d"]).notNull(),
+  timeSlot: mysqlEnum("timeSlot", ["a", "b", "c", "d", "e"]).notNull(),
   /** 수정 대상: check_in=출근만, check_out=퇴근만, both=출퇴근 모두 */
   correctionType: mysqlEnum("correctionType", ["check_in", "check_out", "both"]).notNull(),
   /** corrected=시간 수정, skipped=그대로 저장 */
