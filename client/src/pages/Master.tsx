@@ -370,12 +370,17 @@ export default function Master() {
                 <tr className="border-b border-border/30">
                   <th className="w-24 p-2 text-left text-muted-foreground/50 font-normal"></th>
                   {(["a", "b", "c", "d", "e"] as const).map((slot) => (
-                    <th key={slot} className="p-1.5 text-center min-w-[44px] max-w-[44px]">
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${
-                        slot === "a" ? "bg-primary/30 text-primary" : "bg-secondary text-secondary-foreground"
-                      }`}>
-                        {slot.toUpperCase()}
-                      </span>
+                    <th key={slot} className="p-1.5 text-center min-w-[72px]">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${
+                          slot === "a" ? "bg-primary/30 text-primary" : "bg-secondary text-secondary-foreground"
+                        }`}>
+                          {slot.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/70 tabular-nums">
+                          {SLOT_TIME_DEFAULTS[slot].start}~{SLOT_TIME_DEFAULTS[slot].end}
+                        </span>
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -441,7 +446,7 @@ export default function Master() {
                                   ? setExpandedESlots((prev) => new Set(prev).add(d.dateStr))
                                   : setExpandedDSlots((prev) => new Set(prev).add(d.dateStr))
                                 }
-                                className="w-full flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground border border-dashed border-border/20 hover:border-border/50 rounded py-2.5 transition-colors"
+                                className="w-full min-h-[52px] flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground border border-dashed border-border/20 hover:border-border/50 rounded py-2.5 transition-colors"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                               </button>
@@ -453,14 +458,27 @@ export default function Master() {
                           <td key={slot} className="p-1.5">
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className={`w-full rounded px-1 py-2.5 text-center text-xs font-medium transition-colors border ${
+                                <button className={`w-full min-h-[52px] rounded px-1.5 py-2 text-center text-xs font-medium transition-colors border ${
                                   isViolation
                                     ? "bg-destructive/15 border-destructive/30 text-destructive"
                                     : workerId
                                     ? "bg-primary/10 border-primary/25 text-foreground hover:bg-primary/20"
                                     : "bg-secondary/30 border-border/20 text-muted-foreground/40 hover:bg-secondary/60"
                                 }`}>
-                                  {worker ? worker.name.slice(-2) : "+"}
+                                  {worker ? (
+                                    <div className="flex flex-col items-center gap-0.5 leading-none">
+                                      <span className="text-[11px] font-semibold tracking-tight">
+                                        {worker.name.slice(-2)}
+                                      </span>
+                                      <span className={`text-[9px] tabular-nums ${
+                                        isViolation ? "text-destructive/80" : "text-muted-foreground/80"
+                                      }`}>
+                                        {startTime}~{endTime}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm">+</span>
+                                  )}
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent className="w-56 p-2 bg-card border-border" align="center" side="bottom">
